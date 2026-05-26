@@ -1,0 +1,445 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Cinzel:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-brand: 'Cinzel Decorative', serif;
+  --font-serif: 'Cinzel', serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --animate-in: animateIn 0.2s ease-out;
+  --animate-out: animateOut 0.15s ease-in;
+}
+
+:root {
+  --radius: 0.75rem;
+
+  --background: #f4e9c8;
+  --foreground: #3a261a;
+
+  --card: #fbf3dc;
+  --card-foreground: #3a261a;
+
+  --popover: #fbf3dc;
+  --popover-foreground: #3a261a;
+
+  --primary: #8b6f2c;
+  --primary-foreground: #fbf3dc;
+
+  --secondary: #e6d4a8;
+  --secondary-foreground: #3a261a;
+
+  --muted: #ebdfb8;
+  --muted-foreground: #6b5638;
+
+  --accent: #8b5a2b;
+  --accent-foreground: #fbf3dc;
+
+  --destructive: #a83524;
+  --destructive-foreground: #fbf3dc;
+
+  --border: #b89c5e;
+  --input: #c4a878;
+  --ring: #8b6f2c;
+
+  --surface-gradient:
+    radial-gradient(circle at 20% 20%, rgba(184, 134, 11, 0.12), transparent 35%),
+    radial-gradient(circle at 80% 80%, rgba(139, 90, 43, 0.08), transparent 35%),
+    linear-gradient(180deg, #fbf3dc 0%, #f4e9c8 60%, #ebdfb8 100%);
+  --scrollbar-thumb: rgba(139, 111, 44, 0.3);
+  --scrollbar-thumb-hover: rgba(139, 111, 44, 0.55);
+}
+
+.dark {
+  --background: #0f0a08;
+  --foreground: #efe5c5;
+
+  --card: #1a110e;
+  --card-foreground: #efe5c5;
+
+  --popover: #221610;
+  --popover-foreground: #efe5c5;
+
+  --primary: #c8a86b;
+  --primary-foreground: #0f0a08;
+
+  --secondary: #2d1f17;
+  --secondary-foreground: #e0d0a8;
+
+  --muted: #1f1612;
+  --muted-foreground: #c4a878;
+
+  --accent: #e7cb8a;
+  --accent-foreground: #0f0a08;
+
+  --destructive: #c4453a;
+  --destructive-foreground: #efe5c5;
+
+  --border: #8b703e;
+  --input: #8b703e;
+  --ring: #c8a86b;
+
+  --surface-gradient:
+    radial-gradient(circle at 20% 20%, rgba(99, 41, 17, 0.18), transparent 35%),
+    radial-gradient(circle at 80% 80%, rgba(122, 94, 46, 0.1), transparent 35%),
+    linear-gradient(180deg, #1a110f 0%, #0f0a08 60%, #0b0706 100%);
+  --scrollbar-thumb: rgba(200, 168, 107, 0.2);
+  --scrollbar-thumb-hover: rgba(200, 168, 107, 0.35);
+}
+
+* {
+  box-sizing: border-box;
+  border-color: var(--border);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--foreground);
+  background: var(--surface-gradient);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.font-brand {
+  font-family: 'Cinzel Decorative', serif;
+}
+
+.font-serif {
+  font-family: 'Cinzel', serif;
+}
+
+@keyframes animateIn {
+  from { opacity: 0; transform: scale(0.95) translateY(-2px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes animateOut {
+  from { opacity: 1; transform: scale(1) translateY(0); }
+  to { opacity: 0; transform: scale(0.95) translateY(-2px); }
+}
+
+@keyframes fade-in-0 { from { opacity: 0; } }
+@keyframes fade-out-0 { to { opacity: 0; } }
+@keyframes zoom-in-95 { from { transform: scale(0.95); } }
+@keyframes zoom-out-95 { to { transform: scale(0.95); } }
+@keyframes slide-in-from-top-2 { from { transform: translateY(-0.5rem); } }
+@keyframes slide-in-from-bottom-2 { from { transform: translateY(0.5rem); } }
+@keyframes slide-in-from-left-2 { from { transform: translateX(-0.5rem); } }
+@keyframes slide-in-from-right-2 { from { transform: translateX(0.5rem); } }
+@keyframes slide-in-from-left-1\/2 { from { transform: translateX(-50%); } }
+@keyframes slide-in-from-top-\[48\%\] { from { transform: translateY(-48%); } }
+@keyframes slide-out-to-left-1\/2 { to { transform: translateX(-50%); } }
+@keyframes slide-out-to-top-\[48\%\] { to { transform: translateY(-48%); } }
+
+.animate-in {
+  animation: animateIn 0.2s ease-out;
+}
+.animate-out {
+  animation: animateOut 0.15s ease-in forwards;
+}
+
+[data-state="open"].animate-in {
+  animation: animateIn 0.2s ease-out;
+}
+[data-state="closed"].animate-out {
+  animation: animateOut 0.15s ease-in forwards;
+}
+
+.prose {
+  line-height: 1.7;
+}
+.prose h1, .prose h2, .prose h3, .prose h4 {
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  font-weight: 600;
+}
+.prose p {
+  margin-bottom: 0.75em;
+}
+.prose ul, .prose ol {
+  padding-left: 1.5em;
+  margin-bottom: 0.75em;
+}
+.prose li {
+  margin-bottom: 0.25em;
+}
+.prose strong {
+  font-weight: 600;
+}
+.prose code {
+  background: var(--muted);
+  padding: 0.15em 0.35em;
+  border-radius: 4px;
+  font-size: 0.875em;
+}
+
+.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.7) sepia(1) saturate(3) hue-rotate(10deg);
+}
+
+/* OverlayScrollbars takes over the document scrollbar (see
+   src/hooks/useAutoHideScrollbars.ts); hide the now-redundant native one
+   on the html/body host. Nested scrollers keep their native scrollbars
+   so they remain visible/operable on all platforms. */
+html[data-overlayscrollbars-initialize],
+body[data-overlayscrollbars-initialize] {
+  scrollbar-width: none;
+}
+html[data-overlayscrollbars-initialize]::-webkit-scrollbar,
+body[data-overlayscrollbars-initialize]::-webkit-scrollbar {
+  display: none;
+}
+
+/* Custom OverlayScrollbars theme tuned for the BRan palette. */
+.os-theme-bran {
+  --os-size: 10px;
+  --os-padding-perpendicular: 2px;
+  --os-padding-axis: 2px;
+  --os-track-border-radius: 999px;
+  --os-track-bg: transparent;
+  --os-track-bg-hover: transparent;
+  --os-track-bg-active: transparent;
+  --os-handle-border-radius: 999px;
+  --os-handle-bg: var(--scrollbar-thumb);
+  --os-handle-bg-hover: var(--scrollbar-thumb-hover);
+  --os-handle-bg-active: var(--scrollbar-thumb-hover);
+  --os-handle-min-size: 36px;
+}
+
+/* Smoothly fade scrollbars in / out (the library toggles os-scrollbar-visible
+   on the scrollbar element). */
+.os-scrollbar {
+  transition:
+    opacity 400ms cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 400ms cubic-bezier(0.22, 1, 0.36, 1) !important;
+}
+.os-scrollbar .os-scrollbar-handle {
+  transition:
+    background-color 250ms ease-out,
+    width 200ms ease-out,
+    height 200ms ease-out !important;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.top-nav {
+  height: 84px;
+  padding: 0 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--background) 84%, transparent);
+  backdrop-filter: blur(3px);
+}
+
+.brand {
+  color: var(--accent);
+  text-decoration: none;
+  font-family: 'Cinzel Decorative', serif;
+  font-size: clamp(1.65rem, 3vw, 2.2rem);
+  letter-spacing: 0.14rem;
+}
+
+.login-button {
+  color: var(--accent);
+  text-decoration: none;
+  border: 1px solid var(--border);
+  padding: 0.5rem 1.25rem;
+  border-radius: 999px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.login-button:hover {
+  border-color: var(--primary);
+  background: rgba(200, 168, 107, 0.12);
+}
+
+.social-page {
+  width: min(1160px, 100%);
+  margin: 0 auto;
+  padding: 1.5rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.social-header-card,
+.sentiment-card,
+.records-card,
+.stat-card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card);
+}
+
+.social-header-card { padding: 1.2rem; }
+.page-title {
+  margin: 0;
+  color: var(--accent);
+  font-family: 'Cinzel Decorative', serif;
+  font-size: clamp(1.45rem, 2.4vw, 2rem);
+}
+.page-subtitle { margin: 0.45rem 0 1rem; color: var(--muted-foreground); }
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.8rem;
+}
+.filters-grid label {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--muted-foreground);
+  font-size: 0.85rem;
+}
+.filters-grid input {
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card) 86%, transparent);
+  color: var(--foreground);
+  padding: 0.6rem 0.7rem;
+  font-family: 'Cinzel', serif;
+}
+
+.social-actions { margin-top: 0.9rem; display: flex; gap: 0.7rem; flex-wrap: wrap; }
+.social-actions button {
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(200, 168, 107, 0.15);
+  color: var(--accent);
+  padding: 0.55rem 1rem;
+  cursor: pointer;
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+}
+.social-actions button:disabled { opacity: 0.65; cursor: not-allowed; }
+
+.source-tabs {
+  display: inline-flex;
+  margin-bottom: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.source-tab {
+  border: none;
+  background: transparent;
+  color: var(--muted-foreground);
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-family: 'Cinzel', serif;
+}
+.source-tab.is-active { background: rgba(200, 168, 107, 0.22); color: var(--accent); }
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.8rem;
+}
+.stat-card { padding: 0.9rem; }
+.stat-card-wide { grid-column: 1 / -1; }
+.stat-card h2 { margin: 0; font-size: 0.95rem; color: var(--muted-foreground); }
+.stat-card p { margin: 0.45rem 0 0; color: var(--accent); font-size: 1.5rem; }
+
+.sentiment-card { padding: 1rem; }
+.sentiment-card h2, .records-card h2 { margin: 0; color: var(--accent); font-size: 1.1rem; }
+.sentiment-grid { margin-top: 0.7rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.4rem; color: var(--foreground); }
+.range-text { margin-top: 0.7rem; color: var(--muted-foreground); word-break: break-all; }
+
+.records-card { padding: 1rem; }
+
+.linkedin-insights { margin-top: 0.35rem; margin-bottom: 1rem; display: grid; gap: 0.8rem; }
+.linkedin-insights h3 { margin: 0; color: var(--accent); font-size: 1rem; }
+.linkedin-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.7rem; }
+.linkedin-kpi { border: 1px solid color-mix(in srgb, var(--border) 60%, transparent); border-radius: 12px; padding: 0.7rem; background: color-mix(in srgb, var(--card) 80%, transparent); }
+.linkedin-kpi span { display: block; color: var(--muted-foreground); font-size: 0.8rem; }
+.linkedin-kpi strong { display: block; margin-top: 0.2rem; color: var(--accent); font-size: 1.15rem; }
+
+.linkedin-meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.7rem; }
+.linkedin-meta-card { border: 1px solid color-mix(in srgb, var(--border) 60%, transparent); border-radius: 12px; padding: 0.8rem; background: color-mix(in srgb, var(--card) 80%, transparent); }
+.linkedin-meta-card h4 { margin: 0; color: var(--accent); font-size: 0.9rem; }
+.linkedin-meta-card p { margin: 0.55rem 0; color: var(--foreground); font-size: 0.82rem; line-height: 1.45; }
+.linkedin-meta-card ul { margin: 0.65rem 0 0; padding: 0; list-style: none; }
+.linkedin-meta-card li { display: flex; justify-content: space-between; gap: 0.5rem; color: var(--foreground); font-size: 0.82rem; padding: 0.2rem 0; }
+.linkedin-meta-card a { color: var(--accent); font-size: 0.82rem; }
+.linkedin-top-meta { display: flex; gap: 0.7rem; flex-wrap: wrap; color: var(--muted-foreground); font-size: 0.78rem; margin-bottom: 0.45rem; }
+
+.records-table-wrap { margin-top: 0.8rem; overflow-x: auto; }
+.records-table { width: 100%; border-collapse: collapse; min-width: 920px; }
+.records-table th, .records-table td { border-bottom: 1px solid rgba(200, 168, 107, 0.2); text-align: left; padding: 0.58rem; font-size: 0.84rem; }
+.records-table th { color: var(--accent); font-weight: 600; }
+.records-table td { color: var(--foreground); }
+.empty-records { text-align: center !important; color: var(--muted-foreground) !important; }
+
+.state-text { margin: 0.2rem 0; color: var(--muted-foreground); }
+.retry-button { margin-top: 0.5rem; border-radius: 999px; border: 1px solid var(--border); background: rgba(200, 168, 107, 0.13); color: var(--accent); padding: 0.45rem 0.9rem; cursor: pointer; font-family: 'Cinzel', serif; }
+
+.records-state { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; flex-wrap: wrap; }
+.records-toolbar { margin-top: 0.8rem; display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; flex-wrap: wrap; }
+.records-toolbar label { display: inline-flex; align-items: center; gap: 0.5rem; color: var(--muted-foreground); font-size: 0.85rem; }
+.records-toolbar select { border-radius: 999px; border: 1px solid var(--border); background: color-mix(in srgb, var(--card) 92%, transparent); color: var(--foreground); padding: 0.25rem 0.6rem; font-family: 'Cinzel', serif; }
+
+.pagination { margin-top: 0.8rem; display: flex; align-items: center; justify-content: flex-end; gap: 0.65rem; }
+.pagination-btn { border-radius: 999px; border: 1px solid var(--border); background: rgba(200, 168, 107, 0.13); color: var(--accent); padding: 0.35rem 0.8rem; cursor: pointer; font-family: 'Cinzel', serif; }
+.pagination-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.pagination-text { color: var(--muted-foreground); font-size: 0.85rem; }
+
+.status-text { margin: 0.7rem 0 0; font-size: 0.9rem; }
+.status-error { color: #f5aaa0; }
+.status-success { color: #bde5a2; }
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}

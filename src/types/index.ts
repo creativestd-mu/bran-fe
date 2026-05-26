@@ -1,0 +1,470 @@
+export interface User {
+  id: string
+  googleId: string
+  email: string
+  name: string
+  avatarUrl: string | null
+  description: string | null
+  phone: string | null
+  designation: string | null
+  roleId: string
+  isActive: boolean
+  lastLoginAt: string | null
+  createdAt: string
+  updatedAt: string
+  role: { id: string; name: string }
+  permissions?: string[]
+  socialAccounts?: SocialAccount[]
+}
+
+export interface Role {
+  id: string
+  name: string
+  description: string | null
+  createdAt: string
+  updatedAt: string
+  permissions: Permission[]
+  _count: { users: number }
+}
+
+export interface Permission {
+  id: string
+  name: string
+  description: string | null
+}
+
+export type TaskType = "CONTENT_CREATION" | "TEAM_MANAGEMENT" | "GENERAL"
+export type TaskPlatform = "YOUTUBE" | "INSTAGRAM" | "LINKEDIN" | "FACEBOOK"
+export type TaskStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED"
+
+export interface Task {
+  id: string
+  userId: string
+  title: string
+  description: string | null
+  type: TaskType
+  platform: TaskPlatform | null
+  contentUrl: string | null
+  status: TaskStatus
+  metadata: string | null
+  dueDate: string | null
+  completedAt: string | null
+  createdAt: string
+  updatedAt: string
+  user: { id: string; name: string; email: string }
+}
+
+export interface SocialAccount {
+  id: string
+  userId: string
+  platform: TaskPlatform
+  platformAccountId: string
+  handle: string | null
+  createdAt: string
+}
+
+export interface PaginatedResponse<T> {
+  items: T[]
+  pagination: {
+    page: number
+    pageSize: number
+    total: number
+    totalPages: number
+    hasNextPage: boolean
+  }
+}
+
+export interface AIQueryResponse {
+  report: string
+  meta: {
+    user: { id: string; name: string }
+    timeRange: { from: string; to: string }
+    taskCount: number
+    hadSemanticContext: boolean
+  }
+}
+
+export interface SocialStats {
+  platform: string
+  accountId: string
+  metrics: Record<string, number | string | null>
+  fetchedAt: string
+}
+
+export interface SocialContent {
+  platform: string
+  accountId: string
+  items: SocialContentItem[]
+  fetchedAt: string
+}
+
+export interface SocialContentItem {
+  id: string
+  title?: string
+  description?: string
+  publishedAt?: string
+  thumbnailUrl?: string
+  metrics: Record<string, number | string | null>
+}
+
+export type MemberRole = "LEAD" | "MEMBER" | "CONTRIBUTOR"
+
+export interface HierarchyMember {
+  id: string
+  userId: string
+  memberRole: MemberRole
+  isActive: boolean
+  reportsToUserId: string | null
+  user: User
+}
+
+export interface Team {
+  id: string
+  name: string
+  description?: string | null
+  verticalId?: string | null
+  members: HierarchyMember[]
+}
+
+export interface Project {
+  id: string
+  name: string
+  description?: string | null
+  verticalId?: string | null
+  members: HierarchyMember[]
+}
+
+export interface Vertical {
+  id: string
+  name: string
+  slug: string
+  description?: string | null
+  ownerUserId?: string | null
+  owner?: { id: string; name: string; email: string } | null
+  createdAt: string
+  updatedAt: string
+  _count?: { teams: number; projects: number }
+  teams: Team[]
+  projects: Project[]
+}
+
+export interface HierarchyMemberPayload {
+  userId: string
+  memberRole: MemberRole
+  reportsToUserId?: string | null
+  isActive?: boolean
+}
+
+export type HierarchyKind = "team" | "project"
+
+export type RoleName =
+  | "admin"
+  | "manager"
+  | "content_creator"
+  | "superadmin"
+  | "chief_of_staff"
+
+export function hasRole(user: User | null, ...roles: RoleName[]): boolean {
+  if (!user) return false
+  return roles.includes(user.role.name as RoleName)
+}
+
+// Roles that implicitly grant a permission when the user object doesn't
+// expose a `permissions` array. This mirrors the server-side seeding so the
+// UI can gate controls without an extra round-trip.
+const PERMISSION_ROLE_FALLBACK: Record<string, RoleName[]> = {
+  approve_rental_resources: ["superadmin", "admin", "chief_of_staff"],
+}
+
+export function hasPermission(user: User | null, permission: string): boolean {
+  if (!user) return false
+  if (user.permissions?.includes(permission)) return true
+  const fallbackRoles = PERMISSION_ROLE_FALLBACK[permission]
+  if (fallbackRoles && fallbackRoles.some((r) => hasRole(user, r))) return true
+  // Legacy default: admins are always allowed.
+  return hasRole(user, "admin")
+}
+
+// ---------- Content module ----------
+
+export type ContentType = "PRODUCTION" | "COVERAGE"
+export type ContentStatus = "DRAFT" | "IN_PROGRESS" | "COMPLETED" | "ARCHIVED"
+export type NodeKind =
+  | "SCRIPTING"
+  | "SHOOT"
+  | "EDITING"
+  | "BRIEF"
+  | "PUBLISHING"
+  | "OTHER"
+export type NodeStatus = "PENDING" | "IN_PROGRESS" | "BLOCKED" | "COMPLETED"
+export type TeamRole =
+  | "SCRIPTER"
+  | "DIRECTOR"
+  | "DOP"
+  | "AD"
+  | "EDITOR"
+  | "ACTOR"
+  | "CREW"
+  | "OTHER"
+export type ApprovalState =
+  | "PENDING"
+  | "IN_REVIEW"
+  | "CHANGES_REQUESTED"
+  | "APPROVED"
+  | "REJECTED"
+
+export interface UserRef {
+  id: string
+  name: string | null
+  email: string | null
+}
+
+export interface ContentNodeOutput {
+  id: string
+  nodeId: string
+  label: string
+  url: string
+  notes: string | null
+  version: number
+  approvalState: ApprovalState
+  reviewNote: string | null
+  submittedBy: UserRef | null
+  reviewedBy: UserRef | null
+  reviewedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ContentNodeTeamMember {
+  id: string
+  nodeId: string
+  userId: string
+  role: TeamRole
+  user: UserRef
+  createdAt: string
+}
+
+export type ResourceSourceType = "IN_HOUSE" | "RENTAL"
+
+export type ResourceApprovalState = "PENDING" | "APPROVED" | "REJECTED"
+
+export interface ContentNodeResource {
+  id: string
+  nodeId: string
+  name: string
+  sourceType: ResourceSourceType
+  cost: string | null
+  quantity: number
+  currency: string | null
+  notes: string | null
+  approvalState: ResourceApprovalState
+  reviewNote: string | null
+  requestedByUserId: string | null
+  reviewedByUserId: string | null
+  reviewedAt: string | null
+  requestedBy: { id: string; name: string; email: string } | null
+  reviewedBy: { id: string; name: string; email: string } | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ContentNodeInputRef {
+  fromNodeId: string
+  fromNodeKind: NodeKind
+  fromNodeName: string
+  output: ContentNodeOutput
+}
+
+export interface ContentNode {
+  id: string
+  contentId: string
+  kind: NodeKind
+  name: string
+  orderIndex: number
+  status: NodeStatus
+  notes: string | null
+  startsAt: string | null
+  dueDate: string | null
+  completedAt: string | null
+  team: ContentNodeTeamMember[]
+  outputs: ContentNodeOutput[]
+  resources: ContentNodeResource[]
+  input: ContentNodeInputRef | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ContentTeamRef {
+  id: string
+  name: string
+  verticalId: string
+}
+
+export interface ContentVerticalRef {
+  id: string
+  name: string
+  slug: string
+  ownerUserId: string | null
+}
+
+export interface ContentProjectRef {
+  id: string
+  name: string
+  verticalId: string
+  status: string
+  vertical: ContentVerticalRef
+}
+
+export interface Content {
+  id: string
+  title: string
+  description: string | null
+  type: ContentType
+  status: ContentStatus
+  createdBy: UserRef | null
+  nodes: ContentNode[]
+  teamId: string
+  projectId: string
+  team: ContentTeamRef
+  project: ContentProjectRef
+  createdAt: string
+  updatedAt: string
+}
+
+// ---------- Notifications ----------
+
+export type NotificationKind =
+  | "CONTENT_NODE_READY"
+  | "CONTENT_RESOURCE_REQUESTED"
+  | "CONTENT_RESOURCE_REVIEWED"
+  | (string & {})
+
+export interface Notification {
+  id: string
+  userId: string
+  kind: NotificationKind
+  title: string
+  body: string | null
+  // The server stores `data` as a JSON-encoded string; parse before reading.
+  data: string | null
+  dedupeKey?: string | null
+  readAt: string | null
+  emailSentAt?: string | null
+  createdAt: string
+}
+
+export interface NotificationsPage {
+  items: Notification[]
+  total: number
+  unread: number
+}
+
+// ---------- Ideation ----------
+
+export type CreateIdeaRequest = {
+  title: string
+  description: string
+  tags?: string[]
+}
+
+export type IdeaItem = {
+  id: string
+  title: string
+  description: string
+  tags: string[]
+  createdAt: string
+  updatedAt?: string
+}
+
+export type RecommendationItem = {
+  id: string
+  score: number
+  status: "SUGGESTED" | "NOTIFIED" | string
+  createdAt: string
+  sourceIdea: {
+    id: string
+    title: string
+    description: string
+    tags: string[]
+    createdAt: string
+  }
+  matchedIdea: {
+    id: string
+    title: string
+    description: string
+    tags: string[]
+    createdAt: string
+  }
+  matchedUser: {
+    id: string
+    name: string
+    email: string
+    designation: string | null
+    avatarUrl: string | null
+  }
+}
+
+export interface NodeReadyData {
+  contentId: string
+  contentTitle: string
+  fromNode: { id: string; name: string; kind: NodeKind; orderIndex: number }
+  toNode: { id: string; name: string; kind: NodeKind; orderIndex: number }
+  approvedOutput: {
+    id: string
+    label: string
+    url: string
+    notes: string | null
+    version: number
+    reviewedAt: string | null
+    approvalState: "APPROVED"
+    reviewedBy: { id: string; name: string; email: string } | null
+    submittedBy: { id: string; name: string; email: string } | null
+  }
+  link?: string
+}
+
+export function parseNotificationPayload<T = unknown>(n: Pick<Notification, "data">): T | null {
+  if (!n.data) return null
+  try {
+    return JSON.parse(n.data) as T
+  } catch {
+    return null
+  }
+}
+
+export interface ResourceRequestedData {
+  contentId: string
+  contentTitle: string
+  verticalName: string | null
+  node: { id: string; name: string; kind: NodeKind; orderIndex: number }
+  resource: {
+    id: string
+    name: string
+    sourceType: ResourceSourceType
+    cost: string | null
+    currency: string | null
+    quantity: number
+    notes: string | null
+  }
+  requestedBy: { id: string; name: string; email: string } | null
+  link?: string
+}
+
+export interface ResourceReviewedData {
+  contentId: string
+  contentTitle: string
+  node: { id: string; name: string; kind: NodeKind; orderIndex: number }
+  resource: {
+    id: string
+    name: string
+    sourceType: ResourceSourceType
+    cost: string | null
+    currency: string | null
+    quantity: number
+    notes: string | null
+    approvalState: ResourceApprovalState
+    reviewNote: string | null
+  }
+  reviewedBy: { id: string; name: string; email: string } | null
+  link?: string
+}

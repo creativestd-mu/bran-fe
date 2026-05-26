@@ -1,0 +1,397 @@
+import axios, { type AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from "axios"
+import { trackRequestEnd, trackRequestStart } from "@/lib/networkActivity"
+
+const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL ?? "http://localhost:4001"
+const LANG = "en"
+const NETWORK_TRACKED_KEY = "__networkTracked"
+
+export interface ApiResponse<T = unknown> {
+  success: boolean
+  data?: T
+  error?: string
+  message?: string
+  details?: unknown
+}
+
+export class ApiError extends Error {
+  status: number
+  details?: unknown
+  constructor(message: string, status: number, details?: unknown) {
+    super(message)
+    this.name = "ApiError"
+    this.status = status
+    this.details = details
+  }
+}
+
+function asApiError(error: unknown): never {
+  if (axios.isAxiosError(error)) {
+    const body = error.response?.data as ApiResponse | undefined
+    const message = body?.error || error.message || "Request failed"
+    throw new ApiError(message, error.response?.status ?? 0, body?.details)
+  }
+  if (error instanceof Error) throw error
+  throw new Error("Request failed")
+}
+
+class ApiClient {
+  private client: AxiosInstance
+
+  constructor() {
+    this.client = axios.create({
+      baseURL: `${BACKEND_BASE_URL}/${LANG}/v1`,
+      headers: { "Content-Type": "application/json" },
+    })
+
+    this.client.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+      ;(config as InternalAxiosRequestConfig & Record<string, unknown>)[NETWORK_TRACKED_KEY] = true
+      trackRequestStart()
+      const token = localStorage.getItem("bran_token")
+      if (token && config.headers) {
+        config.headers.Authorization = `Bearer ${token}`
+      }
+      return config
+    })
+
+    this.client.interceptors.response.use(
+      (response) => {
+        if ((response.config as InternalAxiosRequestConfig & Record<string, unknown>)[NETWORK_TRACKED_KEY]) {
+          trackRequestEnd()
+        }
+        return response
+      },
+      (error: AxiosError<ApiResponse>) => {
+        const config = error.config as (InternalAxiosRequestConfig & Record<string, unknown>) | undefined
+        if (config?.[NETWORK_TRACKED_KEY]) {
+          trackRequestEnd()
+        }
+        if (error.response?.status === 401) {
+          localStorage.removeItem("bran_token")
+          localStorage.removeItem("bran_user")
+        }
+        return Promise.reject(error)
+      }
+    )
+  }
+
+  async get<T>(url: string, params?: Record<string, unknown>): Promise<T> {
+    try {
+      const response = await this.client.get<ApiResponse<T>>(url, { params })
+      if (!response.data.success) throw new ApiError(response.data.error || "Request failed", response.status, response.data.details)
+      return response.data.data as T
+    } catch (error) { asApiError(error) }
+  }
+
+  async post<T>(url: string, data?: unknown): Promise<T> {
+    try {
+      const response = await this.client.post<ApiResponse<T>>(url, data)
+      if (!response.data.success) throw new ApiError(response.data.error || "Request failed", response.status, response.data.details)
+      return response.data.data as T
+    } catch (error) { asApiError(error) }
+  }
+
+  async put<T>(url: string, data?: unknown): Promise<T> {
+    try {
+      const response = await this.client.put<ApiResponse<T>>(url, data)
+      if (!response.data.success) throw new ApiError(response.data.error || "Request failed", response.status, response.data.details)
+      return response.data.data as T
+    } catch (error) { asApiError(error) }
+  }
+
+  async patch<T>(url: string, data?: unknown): Promise<T> {
+    try {
+      const response = await this.client.patch<ApiResponse<T>>(url, data)
+      if (!response.data.success) throw new ApiError(response.data.error || "Request failed", response.status, response.data.details)
+      return response.data.data as T
+    } catch (error) { asApiError(error) }
+  }
+
+  async delete<T>(url: string): Promise<T> {
+    try {
+      const response = await this.client.delete<ApiResponse<T>>(url)
+      if (!response.data.success) throw new ApiError(response.data.error || "Request failed", response.status, response.data.details)
+      return response.data.data as T
+    } catch (error) { asApiError(error) }
+  }
+}
+
+export const api = new ApiClient()
+
+export const authApi = {
+  googleLogin: (idToken: string) =>
+    api.post<{ token: string; user: { id: string; email: string; name: string; avatarUrl: string; role: string } }>("/auth/google", { idToken }),
+  login: (email: string, password: string) =>
+    api.post<{ token: string; user: { id: string; email: string; name: string; avatarUrl: string; role: string } }>("/auth/login", { email, password }),
+}
+
+export const usersApi = {
+  me: () => api.get<import("@/types").User>("/users/me"),
+  list: (params?: { page?: number; pageSize?: number; roleId?: string; isActive?: boolean }) =>
+    api.get<import("@/types").PaginatedResponse<import("@/types").User>>("/users", params as Record<string, unknown>),
+  create: (data: {
+    email: string
+    name: string
+    roleId: string
+    description?: string
+    phone?: string
+    designation?: string
+    isActive?: boolean
+  }) => api.post<import("@/types").User>("/users", data),
+  getById: (id: string) => api.get<import("@/types").User>(`/users/${id}`),
+  update: (id: string, data: Partial<{ name: string; description: string; phone: string; designation: string; roleId: string; isActive: boolean }>) =>
+    api.put<import("@/types").User>(`/users/${id}`, data),
+  delete: (id: string) => api.delete(`/users/${id}`),
+  getSocialAccounts: (id: string) => api.get<import("@/types").SocialAccount[]>(`/users/${id}/social-accounts`),
+  addSocialAccount: (id: string, data: { platform: string; platformAccountId: string; handle?: string }) =>
+    api.post<import("@/types").SocialAccount>(`/users/${id}/social-accounts`, data),
+  deleteSocialAccount: (accountId: string) => api.delete(`/users/social-accounts/${accountId}`),
+}
+
+export const rolesApi = {
+  list: () => api.get<import("@/types").Role[]>("/roles"),
+  getById: (id: string) => api.get<import("@/types").Role>(`/roles/${id}`),
+  create: (data: { name: string; description?: string }) => api.post<import("@/types").Role>("/roles", data),
+  update: (id: string, data: { name?: string; description?: string }) => api.put<import("@/types").Role>(`/roles/${id}`, data),
+  delete: (id: string) => api.delete(`/roles/${id}`),
+  updatePermissions: (id: string, permissionIds: string[]) => api.put(`/roles/${id}/permissions`, { permissionIds }),
+  getAllPermissions: () => api.get<import("@/types").Permission[]>("/roles/permissions/all"),
+  createPermission: (data: { name: string; description?: string }) => api.post<import("@/types").Permission>("/roles/permissions", data),
+  deletePermission: (id: string) => api.delete(`/roles/permissions/${id}`),
+}
+
+export const verticalsApi = {
+  list: () => api.get<import("@/types").Vertical[]>("/verticals"),
+  getById: (id: string) => api.get<import("@/types").Vertical>(`/verticals/${id}`),
+}
+
+export const teamsApi = {
+  list: () => api.get<import("@/types").Team[]>("/teams"),
+  getById: (id: string) => api.get<import("@/types").Team>(`/teams/${id}`),
+  create: (data: { name: string; description?: string; verticalId?: string }) =>
+    api.post<import("@/types").Team>("/teams", data),
+  upsertHierarchy: (data: {
+    teamId?: string
+    name: string
+    description?: string
+    members: Array<{
+      userId: string
+      memberRole: import("@/types").MemberRole
+      reportsToUserId: string | null
+    }>
+  }) => api.post<import("@/types").Team>("/teams/hierarchy", data),
+  update: (id: string, data: { name?: string; description?: string; verticalId?: string | null }) =>
+    api.put<import("@/types").Team>(`/teams/${id}`, data),
+  delete: (id: string) => api.delete(`/teams/${id}`),
+  addMember: (teamId: string, data: import("@/types").HierarchyMemberPayload) =>
+    api.post<import("@/types").HierarchyMember>(`/teams/${teamId}/members`, data),
+  updateMember: (memberId: string, data: Partial<import("@/types").HierarchyMemberPayload>) =>
+    api.put<import("@/types").HierarchyMember>(`/teams/members/${memberId}`, data),
+  deleteMember: (memberId: string) => api.delete(`/teams/members/${memberId}`),
+}
+
+export const projectsApi = {
+  list: () => api.get<import("@/types").Project[]>("/projects"),
+  getById: (id: string) => api.get<import("@/types").Project>(`/projects/${id}`),
+  create: (data: { name: string; description?: string; verticalId?: string }) =>
+    api.post<import("@/types").Project>("/projects", data),
+  upsertHierarchy: (data: {
+    projectId?: string
+    name: string
+    description?: string
+    members: Array<{
+      userId: string
+      memberRole: import("@/types").MemberRole
+      reportsToUserId: string | null
+    }>
+  }) => api.post<import("@/types").Project>("/projects/hierarchy", data),
+  update: (id: string, data: { name?: string; description?: string; verticalId?: string | null }) =>
+    api.put<import("@/types").Project>(`/projects/${id}`, data),
+  delete: (id: string) => api.delete(`/projects/${id}`),
+  addMember: (projectId: string, data: import("@/types").HierarchyMemberPayload) =>
+    api.post<import("@/types").HierarchyMember>(`/projects/${projectId}/members`, data),
+  updateMember: (memberId: string, data: Partial<import("@/types").HierarchyMemberPayload>) =>
+    api.put<import("@/types").HierarchyMember>(`/projects/members/${memberId}`, data),
+  deleteMember: (memberId: string) => api.delete(`/projects/members/${memberId}`),
+}
+
+export const tasksApi = {
+  create: (data: {
+    title: string
+    description?: string
+    type?: import("@/types").TaskType
+    platform?: import("@/types").TaskPlatform
+    contentUrl?: string
+    metadata?: string
+    dueDate?: string
+  }) => api.post<import("@/types").Task>("/tasks", data),
+  list: (params?: {
+    userId?: string
+    status?: string
+    type?: string
+    platform?: string
+    from?: string
+    to?: string
+    page?: number
+    pageSize?: number
+  }) => api.get<import("@/types").PaginatedResponse<import("@/types").Task>>("/tasks", params as Record<string, unknown>),
+  getById: (id: string) => api.get<import("@/types").Task>(`/tasks/${id}`),
+  update: (id: string, data: Partial<{
+    title: string
+    description: string
+    type: import("@/types").TaskType
+    platform: import("@/types").TaskPlatform
+    contentUrl: string
+    status: import("@/types").TaskStatus
+    metadata: string
+    dueDate: string
+  }>) => api.put<import("@/types").Task>(`/tasks/${id}`, data),
+  delete: (id: string) => api.delete(`/tasks/${id}`),
+}
+
+export const aiApi = {
+  query: (query: string) => api.post<import("@/types").AIQueryResponse>("/ai/query", { query }),
+}
+
+export const contentsApi = {
+  list: (params?: {
+    type?: import("@/types").ContentType
+    status?: import("@/types").ContentStatus
+    mine?: boolean
+    teamId?: string
+    projectId?: string
+    verticalId?: string
+  }) => api.get<import("@/types").Content[]>("/contents", params as Record<string, unknown>),
+  getById: (id: string) => api.get<import("@/types").Content>(`/contents/${id}`),
+  create: (data: {
+    title: string
+    description?: string
+    type: import("@/types").ContentType
+    status?: import("@/types").ContentStatus
+    teamId: string
+    projectId: string
+  }) => api.post<import("@/types").Content>("/contents", data),
+  update: (
+    id: string,
+    data: Partial<{
+      title: string
+      description: string | null
+      type: import("@/types").ContentType
+      status: import("@/types").ContentStatus
+      teamId: string
+      projectId: string
+    }>
+  ) => api.put<import("@/types").Content>(`/contents/${id}`, data),
+  delete: (id: string) => api.delete(`/contents/${id}`),
+
+  // nodes
+  createNode: (
+    contentId: string,
+    data: {
+      kind: import("@/types").NodeKind
+      name: string
+      orderIndex?: number
+      notes?: string
+      startsAt?: string
+      dueDate?: string
+    }
+  ) => api.post<import("@/types").ContentNode>(`/contents/${contentId}/nodes`, data),
+  updateNode: (
+    nodeId: string,
+    data: Partial<{
+      kind: import("@/types").NodeKind
+      name: string
+      orderIndex: number
+      notes: string | null
+      startsAt: string | null
+      dueDate: string | null
+    }>
+  ) => api.put<import("@/types").ContentNode>(`/contents/nodes/${nodeId}`, data),
+  setNodeStatus: (nodeId: string, status: import("@/types").NodeStatus) =>
+    api.patch<import("@/types").ContentNode>(`/contents/nodes/${nodeId}/status`, { status }),
+  deleteNode: (nodeId: string) => api.delete(`/contents/nodes/${nodeId}`),
+
+  // team
+  addTeamMember: (
+    nodeId: string,
+    data: { userId: string; role: import("@/types").TeamRole }
+  ) => api.post<import("@/types").ContentNodeTeamMember>(`/contents/nodes/${nodeId}/team`, data),
+  removeTeamMember: (teamMemberId: string) => api.delete(`/contents/team/${teamMemberId}`),
+
+  // outputs
+  createOutput: (
+    nodeId: string,
+    data: { label: string; url: string; notes?: string }
+  ) => api.post<import("@/types").ContentNodeOutput>(`/contents/nodes/${nodeId}/outputs`, data),
+  updateOutput: (
+    outputId: string,
+    data: Partial<{ label: string; url: string; notes: string | null }>
+  ) => api.put<import("@/types").ContentNodeOutput>(`/contents/outputs/${outputId}`, data),
+  deleteOutput: (outputId: string) => api.delete(`/contents/outputs/${outputId}`),
+  reviewOutput: (
+    outputId: string,
+    data: { approvalState: import("@/types").ApprovalState; reviewNote?: string | null }
+  ) => api.post<import("@/types").ContentNodeOutput>(`/contents/outputs/${outputId}/review`, data),
+
+  // resources
+  createResource: (
+    nodeId: string,
+    data: {
+      name: string
+      sourceType?: import("@/types").ResourceSourceType
+      cost?: number
+      quantity?: number
+      currency?: string
+      notes?: string
+    }
+  ) => api.post<import("@/types").ContentNodeResource>(`/contents/nodes/${nodeId}/resources`, data),
+  updateResource: (
+    resourceId: string,
+    data: Partial<{
+      name: string
+      sourceType: import("@/types").ResourceSourceType
+      cost: number | null
+      quantity: number
+      currency: string | null
+      notes: string | null
+    }>
+  ) => api.put<import("@/types").ContentNodeResource>(`/contents/resources/${resourceId}`, data),
+  deleteResource: (resourceId: string) => api.delete(`/contents/resources/${resourceId}`),
+  reviewResource: (
+    resourceId: string,
+    data: { approvalState: "APPROVED" | "REJECTED"; reviewNote?: string | null }
+  ) => api.post<import("@/types").ContentNodeResource>(`/contents/resources/${resourceId}/review`, data),
+}
+
+export const notificationsApi = {
+  list: (params?: { unreadOnly?: boolean; take?: number; skip?: number }) =>
+    api.get<import("@/types").NotificationsPage>("/notifications", {
+      unreadOnly: params?.unreadOnly ? "true" : undefined,
+      take: params?.take,
+      skip: params?.skip,
+    }),
+  unreadCount: () => api.get<{ count: number }>("/notifications/unread-count"),
+  markRead: (id: string) =>
+    api.patch<{ id: string; readAt: string }>(`/notifications/${id}/read`),
+  markAllRead: () => api.post<{ updated: number }>("/notifications/read-all"),
+}
+
+export const socialApi = {
+  getStats: (platform: string, accountId: string) =>
+    api.get<import("@/types").SocialStats>(`/social-api/${platform}/${accountId}/stats`),
+  getContent: (platform: string, accountId: string, limit = 10) =>
+    api.get<import("@/types").SocialContent>(`/social-api/${platform}/${accountId}/content`, { limit }),
+  getContentStats: (platform: string, contentId: string) =>
+    api.get<import("@/types").SocialContentItem>(`/social-api/${platform}/content/${contentId}/stats`),
+}
+
+export const ideationApi = {
+  createIdea: (data: import("@/types").CreateIdeaRequest) =>
+    api.post<import("@/types").IdeaItem>("/ideation/ideas", data),
+  listMyIdeas: (params?: { take?: number; skip?: number }) =>
+    api.get<import("@/types").IdeaItem[]>("/ideation/ideas/me", params as Record<string, unknown>),
+  listMyRecommendations: (params?: { take?: number; skip?: number }) =>
+    api.get<import("@/types").RecommendationItem[]>(
+      "/ideation/recommendations/me",
+      params as Record<string, unknown>
+    ),
+}
