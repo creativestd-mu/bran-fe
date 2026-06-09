@@ -8,6 +8,7 @@ export interface ApiResponse<T> {
   error?: string
   details?: unknown
 }
+//
 
 export interface SyncPayload {
   from?: string
