@@ -62,6 +62,7 @@ export function OutputsSection({ node, content, canReview }: Props) {
   const [editing, setEditing] = useState<ContentNodeOutput | null>(null)
   const [form, setForm] = useState<FormState>(empty)
   const [reviewing, setReviewing] = useState<ContentNodeOutput | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [reviewForm, setReviewForm] = useState<{ approvalState: ApprovalState | ""; reviewNote: string }>({
     approvalState: "",
     reviewNote: "",
@@ -141,7 +142,9 @@ export function OutputsSection({ node, content, canReview }: Props) {
 
   const openReview = (output: ContentNodeOutput) => {
     setReviewing(output)
-    setReviewForm({ approvalState: "", reviewNote: "" })
+    const transitions = APPROVAL_TRANSITIONS[output.approvalState] ?? []
+    const autoState = transitions.length === 1 ? transitions[0] : ""
+    setReviewForm({ approvalState: autoState, reviewNote: output.reviewNote ?? "" })
   }
 
   return (
@@ -169,7 +172,7 @@ export function OutputsSection({ node, content, canReview }: Props) {
             return (
               <li
                 key={output.id}
-                className={`rounded-md border bg-background p-3 ${
+                className={`overflow-hidden rounded-md border bg-background p-3 ${
                   isApproved ? "border-emerald-600/40 ring-1 ring-emerald-600/20" : "border-border"
                 }`}
               >
@@ -198,7 +201,7 @@ export function OutputsSection({ node, content, canReview }: Props) {
                       <p className="text-xs text-muted-foreground">{output.notes}</p>
                     )}
                     {output.reviewNote && (
-                      <p className="rounded border border-border bg-muted/30 px-2 py-1.5 text-xs">
+                      <p className="break-all rounded border border-border bg-muted/30 px-2 py-1.5 text-xs">
                         <span className="font-medium">Review note:</span> {output.reviewNote}
                       </p>
                     )}
@@ -239,7 +242,7 @@ export function OutputsSection({ node, content, canReview }: Props) {
                         size="icon"
                         variant="ghost"
                         className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                        onClick={() => deleteMutation.mutate(output.id)}
+                        onClick={() => setConfirmDeleteId(output.id)}
                         disabled={deleteMutation.isPending}
                         aria-label="Delete output"
                       >
@@ -329,11 +332,11 @@ export function OutputsSection({ node, content, canReview }: Props) {
           <div className="space-y-4">
             {reviewing && (
               <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 items-center gap-2">
                   <Badge variant={APPROVAL_BADGE[reviewing.approvalState]}>
                     {pretty(reviewing.approvalState)}
                   </Badge>
-                  <span className="font-medium">{reviewing.label}</span>
+                  <span className="min-w-0 truncate font-medium">{reviewing.label}</span>
                 </div>
               </div>
             )}
@@ -386,6 +389,30 @@ export function OutputsSection({ node, content, canReview }: Props) {
               disabled={reviewMutation.isPending}
             >
               {reviewMutation.isPending ? "Saving..." : "Submit review"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Delete confirmation dialog */}
+      <Dialog open={Boolean(confirmDeleteId)} onOpenChange={(open) => { if (!open) setConfirmDeleteId(null) }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete output?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">This action cannot be undone. The output and its review history will be permanently removed.</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDeleteId(null)} disabled={deleteMutation.isPending}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => {
+                if (confirmDeleteId) deleteMutation.mutate(confirmDeleteId)
+                setConfirmDeleteId(null)
+              }}
+            >
+              Delete
             </Button>
           </DialogFooter>
         </DialogContent>

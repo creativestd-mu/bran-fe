@@ -1,3 +1,9 @@
+export interface MostVisitedPage {
+  path: string
+  visitCount: number
+  lastVisitedAt: string
+}
+
 export interface User {
   id: string
   googleId: string
@@ -135,14 +141,92 @@ export interface DeadlinesResult {
   deadlines: DeadlineStep[]
 }
 
+export interface AIQueryMeta {
+  user: { id: string; name: string }
+  scope?: string
+  timeRange: { from: string; to: string }
+  taskCount: number
+  adhocWorkCount?: number
+  workUnitCount?: number
+  visionCount?: number
+  kpiCount?: number
+  guidanceQuery?: boolean
+  hadSemanticContext: boolean
+  truncatedTasks?: boolean
+  truncatedAdhocWork?: boolean
+  truncatedWorkUnits?: boolean
+  cached?: boolean
+  queryId?: string
+}
+
 export interface AIQueryResponse {
   report: string
-  meta: {
-    user: { id: string; name: string }
-    timeRange: { from: string; to: string }
-    taskCount: number
-    hadSemanticContext: boolean
-  }
+  meta: AIQueryMeta
+}
+
+export interface AIQueryHistoryItem {
+  id: string
+  query: string
+  scope: string
+  target: { id: string; name: string }
+  timeRange: { from: string; to: string }
+  report: string
+  meta: AIQueryMeta
+  cached: boolean
+  expiresAt: string | null
+  createdAt: string
+}
+
+export type VisionHorizon = "SHORT_TERM" | "LONG_TERM"
+export type VisionScope = "ALL" | "SPECIFIC"
+
+export interface VisionDocument {
+  originalFilename: string
+  mimeType: string
+  fileSizeBytes: number
+}
+
+export interface VisionTeamRef {
+  id: string
+  name: string
+  verticalId: string
+  memberCount: number
+}
+
+export interface VisionInvolvement {
+  scope: VisionScope
+  teams: VisionTeamRef[]
+  users: UserRef[]
+}
+
+export interface Vision {
+  id: string
+  title: string
+  description: string | null
+  horizon: VisionHorizon
+  durationMonths: number
+  startsAt: string
+  endsAt: string
+  scope: VisionScope
+  document: VisionDocument
+  involvement: VisionInvolvement
+  createdBy: UserRef
+  createdAt: string
+  updatedAt: string
+}
+
+export interface KPI {
+  id: string
+  userId: string
+  title: string
+  description: string | null
+  sortOrder: number
+  isActive: boolean
+  isKey: boolean
+  user: UserRef
+  createdBy: UserRef
+  createdAt: string
+  updatedAt: string
 }
 
 export interface SocialStats {
@@ -236,6 +320,7 @@ export function hasRole(user: User | null, ...roles: RoleName[]): boolean {
 const PERMISSION_ROLE_FALLBACK: Record<string, RoleName[]> = {
   approve_rental_resources: ["superadmin", "admin", "chief_of_staff"],
   create_tasks: ["superadmin", "admin", "manager", "content_creator", "chief_of_staff"],
+  query_ai: ["superadmin", "admin", "manager", "content_creator", "chief_of_staff"],
 }
 
 export function hasPermission(user: User | null, permission: string): boolean {
@@ -245,6 +330,10 @@ export function hasPermission(user: User | null, permission: string): boolean {
   if (fallbackRoles && fallbackRoles.some((r) => hasRole(user, r))) return true
   // Legacy default: admins are always allowed.
   return hasRole(user, "admin")
+}
+
+export function canManageVision(user: User | null): boolean {
+  return hasRole(user, "admin", "chief_of_staff", "superadmin")
 }
 
 // ---------- Content module ----------

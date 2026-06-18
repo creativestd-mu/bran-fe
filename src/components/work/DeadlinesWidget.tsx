@@ -59,8 +59,8 @@ export function DeadlinesWidget() {
                 >
                   <div className="flex items-start gap-2">
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium leading-snug">{item.description}</p>
-                      <p className="mt-0.5 text-xs text-muted-foreground flex items-center gap-1">
+                      <p className="break-all text-sm font-medium leading-snug">{item.description}</p>
+                      <p className="mt-0.5 break-all text-xs text-muted-foreground flex items-center gap-1">
                         {item.workUnit.title}
                         {item.workUnit.isPrivate && (
                           <Lock className="h-3 w-3 shrink-0" aria-label="Private" />

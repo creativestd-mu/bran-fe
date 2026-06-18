@@ -195,7 +195,7 @@ export function NotificationsMenu() {
           <Button
             size="sm"
             variant="ghost"
-            className="h-7 gap-1.5 text-xs"
+            className="h-7 gap-1.5 text-xs text-foreground hover:text-foreground"
             disabled={unread === 0 || markAll.isPending}
             onClick={() => markAll.mutate()}
           >
@@ -242,7 +242,7 @@ export function NotificationsMenu() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 text-sm font-medium leading-tight">
+                          <div className="min-w-0 break-all text-sm font-medium leading-snug">
                             {notification.title}
                           </div>
                           {isUnread && (
@@ -250,7 +250,7 @@ export function NotificationsMenu() {
                           )}
                         </div>
                         {notification.body && (
-                          <p className="mt-0.5 line-clamp-2 whitespace-pre-line text-xs text-muted-foreground">
+                          <p className="mt-0.5 line-clamp-2 break-words whitespace-pre-line text-xs text-muted-foreground">
                             {notification.body}
                           </p>
                         )}

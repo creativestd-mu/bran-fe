@@ -1,176 +1,161 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
-import { hasRole } from "@/types"
-import type { Task, PaginatedResponse } from "@/types"
-import { tasksApi, usersApi } from "@/lib/api"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
-import { DeadlinesWidget } from "@/components/work/DeadlinesWidget"
-import { Users, CheckSquare, Clock, TrendingUp } from "lucide-react"
-
-interface DashboardStats {
-  totalUsers?: number
-  totalTasksThisWeek: number
-  completedTasks: number
-  pendingTasks: number
-}
+import { logNavSearchQuery } from "@/lib/navigationAnalytics"
+import { getNavItemByPath, getNavSearchResults, getVisibleNavSearchItems, type NavSearchItem } from "@/lib/navSearch"
+import { NavSearchResults } from "@/components/layout/NavSearchResults"
+import { Search } from "lucide-react"
 
 export default function DashboardPage() {
-  const { user } = useAuth()
-  const isAdmin = hasRole(user, "admin", "manager")
-  const [stats, setStats] = useState<DashboardStats | null>(null)
-  const [recentTasks, setRecentTasks] = useState<Task[]>([])
-  const [loading, setLoading] = useState(true)
+  const { user, mostVisitedPages } = useAuth()
+  const navigate = useNavigate()
+  const [query, setQuery] = useState("")
+  const [activeIndex, setActiveIndex] = useState(0)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
+
+  const results = getNavSearchResults(user, query)
+  const showResults = query.trim().length > 0
+
+  const quickLinks = useMemo(() => {
+    const visiblePaths = new Set(getVisibleNavSearchItems(user).map((item) => item.path))
+    return mostVisitedPages
+      .map((page) => ({ page, item: getNavItemByPath(page.path) }))
+      .filter(({ item }) => item && visiblePaths.has(item.path))
+      .slice(0, 3)
+  }, [mostVisitedPages, user])
 
   useEffect(() => {
-    const load = async () => {
-      setLoading(true)
-      try {
-        const now = new Date()
-        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    inputRef.current?.focus()
+  }, [])
 
-        const tasksRes = await tasksApi.list({
-          from: weekAgo.toISOString(),
-          to: now.toISOString(),
-          page: 1,
-          pageSize: 50,
-        })
+  useEffect(() => {
+    setActiveIndex(0)
+  }, [query])
 
-        const tasks = tasksRes.items
-        const completed = tasks.filter((t) => t.status === "COMPLETED").length
-        const pending = tasks.filter((t) => t.status === "PENDING").length
+  useEffect(() => {
+    if (!showResults) return
+    const el = listRef.current?.children[activeIndex] as HTMLElement | undefined
+    el?.scrollIntoView({ block: "nearest" })
+  }, [activeIndex, showResults])
 
-        let totalUsers: number | undefined
-        if (isAdmin) {
-          try {
-            const usersRes = await usersApi.list({ page: 1, pageSize: 1 })
-            totalUsers = usersRes.pagination.total
-          } catch { /* ignore */ }
-        }
+  const commit = useCallback(
+    (item: NavSearchItem) => {
+      logNavSearchQuery(query, item.path)
+      navigate(item.path)
+    },
+    [navigate, query]
+  )
 
-        setStats({ totalUsers, totalTasksThisWeek: tasks.length, completedTasks: completed, pendingTasks: pending })
-        setRecentTasks(tasks.slice(0, 8))
-      } catch {
-        setStats({ totalTasksThisWeek: 0, completedTasks: 0, pendingTasks: 0 })
-      } finally {
-        setLoading(false)
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && query.trim()) {
+      if (showResults && results[activeIndex]) {
+        e.preventDefault()
+        commit(results[activeIndex])
+        return
       }
+      if (!showResults || results.length === 0) {
+        e.preventDefault()
+        logNavSearchQuery(query)
+      }
+      return
     }
-    load()
-  }, [isAdmin])
 
-  const statusVariant = (s: string) => {
-    switch (s) {
-      case "COMPLETED": return "success" as const
-      case "PENDING": return "warning" as const
-      case "IN_PROGRESS": return "info" as const
-      case "CANCELLED": return "destructive" as const
-      default: return "secondary" as const
+    if (!showResults) return
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault()
+      setActiveIndex((i) => Math.min(i + 1, results.length - 1))
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault()
+      setActiveIndex((i) => Math.max(i - 1, 0))
     }
-  }
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-8 w-48" />
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-32" />)}
-        </div>
-        <Skeleton className="h-64" />
-      </div>
-    )
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="font-brand text-2xl tracking-wide text-accent">
-          {isAdmin ? "Command Center" : "My Dashboard"}
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Welcome back, {user?.name?.split(" ")[0]}
-        </p>
-      </div>
+    <div className="flex flex-1 flex-col items-center justify-center px-4 py-8">
+      <div className="w-full max-w-2xl space-y-6">
+        <div className="text-center">
+          <h1 className="font-brand text-4xl tracking-wide text-accent sm:text-5xl">BRan</h1>
+          {user?.name && (
+            <p className="mt-2 text-sm text-muted-foreground">
+              Hi {user.name.split(" ")[0]} — what would you like to do?
+            </p>
+          )}
+        </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {isAdmin && stats?.totalUsers !== undefined && (
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Users</CardTitle>
-              <Users className="h-4 w-4 text-accent" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-accent">{stats.totalUsers}</div>
-            </CardContent>
-          </Card>
+        <div
+          className="overflow-hidden rounded-2xl border border-border/70 bg-card/80 shadow-lg shadow-black/5 backdrop-blur-xl"
+          onKeyDown={handleKeyDown}
+        >
+          <div className="flex items-center gap-3 px-5 py-4">
+            <Search className="h-5 w-5 shrink-0 text-muted-foreground" />
+            <input
+              ref={inputRef}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search pages or describe what you want to do…"
+              className="flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground sm:text-lg"
+              autoComplete="off"
+              spellCheck={false}
+              aria-label="Search BRan"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          {showResults && (
+            <>
+              <div className="border-t border-border/60" />
+              <NavSearchResults
+                results={results}
+                activeIndex={activeIndex}
+                onActiveIndexChange={setActiveIndex}
+                onSelect={commit}
+                listRef={listRef}
+                className="max-h-[min(50vh,420px)]"
+              />
+            </>
+          )}
+        </div>
+
+        {!showResults && quickLinks.length > 0 && (
+          <div className="space-y-3">
+            <p className="text-center text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Your frequent pages
+            </p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {quickLinks.map(({ page, item }) => {
+                if (!item) return null
+                const Icon = item.icon
+                return (
+                  <button
+                    key={page.path}
+                    type="button"
+                    onClick={() => navigate(page.path)}
+                    className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/60 px-3 py-1.5 text-sm text-foreground transition-colors hover:border-primary/40 hover:bg-primary/10"
+                  >
+                    <Icon className="h-3.5 w-3.5 text-accent" />
+                    {item.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
         )}
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Tasks This Week</CardTitle>
-            <TrendingUp className="h-4 w-4 text-accent" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-accent">{stats?.totalTasksThisWeek}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Completed</CardTitle>
-            <CheckSquare className="h-4 w-4 text-emerald-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-emerald-400">{stats?.completedTasks}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
-            <Clock className="h-4 w-4 text-amber-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-amber-400">{stats?.pendingTasks}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <DeadlinesWidget />
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-accent">Recent Tasks</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {recentTasks.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">No tasks this week yet.</p>
-            ) : (
-              <div className="space-y-3">
-                {recentTasks.map((task) => (
-                  <div key={task.id} className="flex items-center justify-between rounded-lg border border-border p-3">
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium">{task.title}</p>
-                      <div className="flex items-center gap-2">
-                        {task.platform && (
-                          <Badge variant="outline" className="text-[10px]">{task.platform}</Badge>
-                        )}
-                        <span className="text-xs text-muted-foreground">
-                          {isAdmin ? task.user.name : ""} {task.dueDate ? `Due ${new Date(task.dueDate).toLocaleDateString()}` : ""}
-                        </span>
-                      </div>
-                    </div>
-                    <Badge variant={statusVariant(task.status)} className="text-[10px]">
-                      {task.status.replace("_", " ")}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {!showResults && quickLinks.length === 0 && (
+          <p className="text-center text-xs text-muted-foreground">
+            Try &ldquo;log my hours&rdquo;, &ldquo;team tasks&rdquo;, or &ldquo;voice memo&rdquo;
+          </p>
+        )}
       </div>
     </div>
   )

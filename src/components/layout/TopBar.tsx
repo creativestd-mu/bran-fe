@@ -11,15 +11,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { LogOut, Menu, User, Moon, Sun } from "lucide-react"
+import { LogOut, Menu, User, Moon, Sun, Search } from "lucide-react"
 import { useTheme } from "@/contexts/ThemeContext"
 import { NotificationsMenu } from "@/components/layout/NotificationsMenu"
 
 interface TopBarProps {
   onMenuClick: () => void
+  onSearchOpen: () => void
 }
 
-export function TopBar({ onMenuClick }: TopBarProps) {
+export function TopBar({ onMenuClick, onSearchOpen }: TopBarProps) {
   const { user, logout } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
@@ -32,30 +33,76 @@ export function TopBar({ onMenuClick }: TopBarProps) {
     .toUpperCase()
     .slice(0, 2) ?? "?"
 
+  const ROUTE_TITLES: Record<string, string> = {
+    "ai": "AI Query",
+    "adhoc-work": "Adhoc Work",
+    "work": "Work Units",
+    "social-stats": "Social Stats",
+    "social-insights": "Social Insights",
+    "kpis": "KPIs",
+  }
+
+  const rawSegment = location.pathname.split("/").filter(Boolean)[0] ?? "dashboard"
   const pageTitle =
-    location.pathname
-      .split("/")
-      .filter(Boolean)[0]
-      ?.replace(/-/g, " ")
-      .replace(/\b\w/g, (char) => char.toUpperCase()) ?? "Dashboard"
+    ROUTE_TITLES[rawSegment] ??
+    (rawSegment
+      .replace(/-/g, " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase()))
+
+  const isDashboardHome = location.pathname === "/dashboard"
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/45 bg-transparent px-4 py-3 backdrop-blur-xl lg:px-6">
       <div className="flex h-14 items-center gap-4 rounded-2xl border border-border/60 bg-card/80 px-3 shadow-lg shadow-black/5 backdrop-blur-xl">
-        <Button variant="ghost" size="icon" className="lg:hidden" onClick={onMenuClick}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onMenuClick}
+          aria-label="Open menu"
+          title="Open menu"
+          className="rounded-full border border-border/70 bg-card/70 text-muted-foreground shadow-sm hover:bg-muted hover:text-foreground"
+        >
           <Menu className="h-5 w-5" />
         </Button>
 
-        <Link to="/" className="font-brand text-xl tracking-wider text-foreground lg:hidden">
+        <Link to="/dashboard" className="font-brand text-xl tracking-wider text-foreground">
           BRan
         </Link>
 
-        <div className="hidden min-w-0 lg:block">
-          <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">Workspace</p>
-          <h1 className="truncate text-sm font-semibold text-foreground">{pageTitle}</h1>
+        <div className="hidden min-w-0 sm:block">
+          {!isDashboardHome && (
+            <>
+              <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">Workspace</p>
+              <h1 className="truncate text-sm font-semibold text-foreground">{pageTitle}</h1>
+            </>
+          )}
         </div>
 
         <div className="flex-1" />
+
+        {!isDashboardHome && (
+          <>
+            <Button
+              variant="ghost"
+              onClick={onSearchOpen}
+              className="hidden items-center gap-2 rounded-full border border-border/70 bg-card/70 px-3 text-muted-foreground shadow-sm hover:bg-muted hover:text-foreground sm:flex"
+              aria-label="Search pages (⌘K)"
+            >
+              <Search className="h-4 w-4" />
+              <span className="text-sm">Search…</span>
+              <kbd className="ml-2 rounded border border-border px-1.5 py-0.5 font-mono text-[10px] opacity-60">⌘K</kbd>
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onSearchOpen}
+              className="rounded-full border border-border/70 bg-card/70 text-muted-foreground shadow-sm hover:bg-muted hover:text-foreground sm:hidden"
+              aria-label="Search pages"
+            >
+              <Search className="h-4 w-4" />
+            </Button>
+          </>
+        )}
 
         <Button
           variant="ghost"

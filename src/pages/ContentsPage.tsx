@@ -9,7 +9,6 @@ import {
   Layers,
   Plus,
   Search,
-  User as UserIcon,
   UsersRound,
   X,
 } from "lucide-react"
@@ -183,20 +182,19 @@ export default function ContentsPage() {
               )}
             </Button>
 
+            {hasActiveFilter && (
+              <Button size="sm" variant="ghost" className="h-9" onClick={resetAll}>
+                Clear
+              </Button>
+            )}
+
             <div className="ml-auto flex items-center gap-2">
               <div className="flex h-9 items-center gap-2 rounded-md border border-border px-3">
-                <UserIcon className="h-3.5 w-3.5 text-muted-foreground" />
                 <Label htmlFor="mine-only" className="cursor-pointer text-xs">
                   Mine only
                 </Label>
                 <Switch id="mine-only" checked={mineOnly} onCheckedChange={setMineOnly} />
               </div>
-
-              {hasActiveFilter && (
-                <Button size="sm" variant="ghost" className="h-9" onClick={resetAll}>
-                  Clear
-                </Button>
-              )}
             </div>
           </div>
 

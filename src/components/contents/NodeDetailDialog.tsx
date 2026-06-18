@@ -153,7 +153,7 @@ export function NodeDetailDialog({ open, onOpenChange, node, content, index, can
                 {index + 1}
               </div>
               <div className="min-w-0 space-y-1.5">
-                <DialogTitle className="text-lg leading-tight">{node.name}</DialogTitle>
+                <DialogTitle className="break-all text-lg leading-tight">{node.name}</DialogTitle>
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="outline">{pretty(node.kind)}</Badge>
                   <Badge variant={NODE_STATUS_BADGE[node.status]}>{pretty(node.status)}</Badge>
@@ -249,7 +249,7 @@ export function NodeDetailDialog({ open, onOpenChange, node, content, index, can
 
             {/* Notes */}
             {node.notes && (
-              <div className="border-b border-border px-5 py-3 text-sm text-muted-foreground whitespace-pre-wrap">
+              <div className="border-b border-border px-5 py-3 text-sm text-muted-foreground break-all whitespace-pre-wrap">
                 {node.notes}
               </div>
             )}
@@ -272,7 +272,7 @@ export function NodeDetailDialog({ open, onOpenChange, node, content, index, can
                     </Badge>
                     <Badge variant="outline">v{node.input.output.version}</Badge>
                   </div>
-                  <div className="mt-2 text-sm font-medium">{node.input.output.label}</div>
+                  <div className="mt-2 break-all text-sm font-medium">{node.input.output.label}</div>
                   <a
                     href={node.input.output.url}
                     target="_blank"

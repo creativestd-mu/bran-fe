@@ -1,5 +1,6 @@
 import axios, { type AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from "axios"
 import { trackRequestEnd, trackRequestStart } from "@/lib/networkActivity"
+import type { MostVisitedPage } from "@/types"
 
 const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL ?? "http://localhost:4001"
 const LANG = "en"
@@ -68,6 +69,7 @@ class ApiClient {
         if (error.response?.status === 401) {
           localStorage.removeItem("bran_token")
           localStorage.removeItem("bran_user")
+          localStorage.removeItem("bran_most_visited")
         }
         return Promise.reject(error)
       }
@@ -100,6 +102,29 @@ class ApiClient {
     } catch (error) { asApiError(error) }
   }
 
+  async putForm<T>(url: string, form: FormData): Promise<T> {
+    try {
+      const response = await this.client.put<ApiResponse<T>>(url, form, {
+        headers: { "Content-Type": undefined },
+      })
+      if (!response.data.success) throw new ApiError(response.data.error || "Request failed", response.status, response.data.details)
+      return response.data.data as T
+    } catch (error) { asApiError(error) }
+  }
+
+  async downloadBlob(url: string): Promise<{ blob: Blob; filename: string }> {
+    try {
+      const response = await this.client.get(url, { responseType: "blob" })
+      const disposition = response.headers["content-disposition"] as string | undefined
+      let filename = "document"
+      if (disposition) {
+        const match = /filename\*?=(?:UTF-8''|")?([^";]+)/i.exec(disposition)
+        if (match?.[1]) filename = decodeURIComponent(match[1].replace(/"/g, ""))
+      }
+      return { blob: response.data as Blob, filename }
+    } catch (error) { asApiError(error) }
+  }
+
   async put<T>(url: string, data?: unknown): Promise<T> {
     try {
       const response = await this.client.put<ApiResponse<T>>(url, data)
@@ -127,11 +152,26 @@ class ApiClient {
 
 export const api = new ApiClient()
 
+export interface AuthLoginData {
+  token: string
+  user: { id: string; email: string; name: string; avatarUrl: string | null; role: string }
+  mostVisitedPages: MostVisitedPage[]
+}
+
 export const authApi = {
-  googleLogin: (idToken: string) =>
-    api.post<{ token: string; user: { id: string; email: string; name: string; avatarUrl: string; role: string } }>("/auth/google", { idToken }),
-  login: (email: string, password: string) =>
-    api.post<{ token: string; user: { id: string; email: string; name: string; avatarUrl: string; role: string } }>("/auth/login", { email, password }),
+  googleLogin: (idToken: string) => api.post<AuthLoginData>("/auth/google", { idToken }),
+  login: (email: string, password: string) => api.post<AuthLoginData>("/auth/login", { email, password }),
+}
+
+export const navigationApi = {
+  logSearch: (data: { query: string; selectedPath?: string }) =>
+    api.post<{ id: string; query: string; selectedPath: string | null; createdAt: string }>(
+      "/navigation/search-logs",
+      data
+    ),
+  recordPageVisit: (data: { path: string }) =>
+    api.post<MostVisitedPage>("/navigation/page-visits", data),
+  listPageVisits: () => api.get<MostVisitedPage[]>("/navigation/page-visits"),
 }
 
 export const usersApi = {
@@ -340,6 +380,76 @@ export const tasksApi = {
 
 export const aiApi = {
   query: (query: string) => api.post<import("@/types").AIQueryResponse>("/ai/query", { query }),
+  listQueries: (params?: { page?: number; pageSize?: number }) =>
+    api.get<import("@/types").PaginatedResponse<import("@/types").AIQueryHistoryItem>>(
+      "/ai/queries",
+      params as Record<string, unknown>
+    ),
+  getQueryById: (id: string) => api.get<import("@/types").AIQueryHistoryItem>(`/ai/queries/${id}`),
+}
+
+export const visionsApi = {
+  list: (params?: {
+    horizon?: import("@/types").VisionHorizon
+    scope?: import("@/types").VisionScope
+    teamId?: string
+    userId?: string
+    page?: number
+    pageSize?: number
+  }) =>
+    api.get<import("@/types").PaginatedResponse<import("@/types").Vision>>(
+      "/visions",
+      params as Record<string, unknown>
+    ),
+  getById: (id: string) => api.get<import("@/types").Vision>(`/visions/${id}`),
+  create: (form: FormData) => api.postForm<import("@/types").Vision>("/visions", form),
+  update: (id: string, form: FormData) => api.putForm<import("@/types").Vision>(`/visions/${id}`, form),
+  delete: (id: string) => api.delete(`/visions/${id}`),
+  downloadDocument: (id: string) => api.downloadBlob(`/visions/${id}/document`),
+}
+
+export const kpisApi = {
+  list: (params?: {
+    userId?: string
+    isActive?: boolean
+    isKey?: boolean
+    page?: number
+    pageSize?: number
+  }) =>
+    api.get<import("@/types").PaginatedResponse<import("@/types").KPI>>(
+      "/kpis",
+      params as Record<string, unknown>
+    ),
+  getById: (id: string) => api.get<import("@/types").KPI>(`/kpis/${id}`),
+  create: (data: {
+    userId: string
+    title: string
+    description?: string
+    sortOrder?: number
+    isActive?: boolean
+    isKey?: boolean
+  }) => api.post<import("@/types").KPI>("/kpis", data),
+  batch: (data: {
+    userId: string
+    items: Array<{
+      title: string
+      description?: string
+      sortOrder?: number
+      isActive?: boolean
+      isKey?: boolean
+    }>
+  }) => api.post<import("@/types").KPI[]>("/kpis/batch", data),
+  update: (
+    id: string,
+    data: Partial<{
+      title: string
+      description: string
+      sortOrder: number
+      isActive: boolean
+      isKey: boolean
+    }>
+  ) => api.put<import("@/types").KPI>(`/kpis/${id}`, data),
+  delete: (id: string) => api.delete(`/kpis/${id}`),
 }
 
 export const contentsApi = {

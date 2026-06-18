@@ -4,7 +4,6 @@ import { adhocWorkApi, usersApi } from "@/lib/api"
 import type { AdhocWorkEntry, User } from "@/types"
 import { hasPermission, hasRole } from "@/types"
 import {
-  firstValidationError,
   validateAdhocText,
   validateEffortHours,
 } from "@/lib/validation"
@@ -36,6 +35,14 @@ function canManageEntry(entry: AdhocWorkEntry, userId: string | undefined, isMan
   return Boolean(userId && (entry.userId === userId || isManager))
 }
 
+function allFormErrors(form: typeof emptyForm, descriptionRequired: boolean): string[] {
+  return [
+    validateAdhocText(form.description, "Description", { required: descriptionRequired }),
+    validateAdhocText(form.output, "Output"),
+    validateEffortHours(form.effortHours),
+  ].filter(Boolean) as string[]
+}
+
 export default function AdhocWorkPage() {
   const { user } = useAuth()
   const isManager = hasRole(user, "admin", "manager", "superadmin")
@@ -57,10 +64,12 @@ export default function AdhocWorkPage() {
 
   const [createOpen, setCreateOpen] = useState(false)
   const [createForm, setCreateForm] = useState(emptyForm)
+  const [createErrors, setCreateErrors] = useState<string[]>([])
   const [creating, setCreating] = useState(false)
 
   const [editing, setEditing] = useState<AdhocWorkEntry | null>(null)
   const [editForm, setEditForm] = useState(emptyForm)
+  const [editErrors, setEditErrors] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
 
   const [deleting, setDeleting] = useState<AdhocWorkEntry | null>(null)
@@ -104,6 +113,7 @@ export default function AdhocWorkPage() {
 
   const openEdit = (entry: AdhocWorkEntry) => {
     setEditing(entry)
+    setEditErrors([])
     setEditForm({
       description: entry.description,
       output: entry.output ?? "",
@@ -111,19 +121,13 @@ export default function AdhocWorkPage() {
     })
   }
 
-  const validateForm = (form: typeof emptyForm, descriptionRequired: boolean) =>
-    firstValidationError(
-      validateAdhocText(form.description, "Description", { required: descriptionRequired }),
-      validateAdhocText(form.output, "Output"),
-      validateEffortHours(form.effortHours)
-    )
-
   const handleCreate = async () => {
-    const validationError = validateForm(createForm, true)
-    if (validationError) {
-      toast.error(validationError)
+    const errors = allFormErrors(createForm, true)
+    if (errors.length > 0) {
+      setCreateErrors(errors)
       return
     }
+    setCreateErrors([])
     setCreating(true)
     try {
       await adhocWorkApi.create({
@@ -144,11 +148,12 @@ export default function AdhocWorkPage() {
 
   const handleUpdate = async () => {
     if (!editing) return
-    const validationError = validateForm(editForm, true)
-    if (validationError) {
-      toast.error(validationError)
+    const errors = allFormErrors(editForm, true)
+    if (errors.length > 0) {
+      setEditErrors(errors)
       return
     }
+    setEditErrors([])
     setSaving(true)
     try {
       const updated = await adhocWorkApi.update(editing.id, {
@@ -181,8 +186,14 @@ export default function AdhocWorkPage() {
     }
   }
 
+  const clearFilters = () => {
+    const reset = { userId: "all", from: "", to: "" }
+    setFilters(reset)
+    setAppliedFilters(reset)
+  }
+
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto w-full space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="font-brand text-2xl tracking-wide text-accent">Adhoc Work</h1>
@@ -240,6 +251,14 @@ export default function AdhocWorkPage() {
           <Button size="sm" variant="secondary" onClick={() => setAppliedFilters({ ...filters })}>
             Apply
           </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={clearFilters}
+            disabled={filters.userId === "all" && !filters.from && !filters.to}
+          >
+            Clear all
+          </Button>
         </div>
       )}
 
@@ -254,9 +273,9 @@ export default function AdhocWorkPage() {
           <p className="p-8 text-center text-sm text-muted-foreground">No entries yet.</p>
         ) : (
           entries.map((entry) => (
-            <div key={entry.id} className="flex gap-3 p-4">
+            <div key={entry.id} className="flex gap-3 overflow-hidden p-4">
               <div className="min-w-0 flex-1 space-y-1">
-                <p className="text-sm leading-snug">{entry.description}</p>
+                <p className="break-all text-sm leading-snug">{entry.description}</p>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                   {isManager && <span>{entry.user.name}</span>}
                   <span>{new Date(entry.createdAt).toLocaleDateString()}</span>
@@ -329,12 +348,13 @@ export default function AdhocWorkPage() {
         </div>
       )}
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-4xl">
+      <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) { setCreateErrors([]); setCreateForm(emptyForm) } }}>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Log adhoc work</DialogTitle>
           </DialogHeader>
           <AdhocForm form={createForm} onChange={setCreateForm} />
+          {createErrors.length > 0 && <ValidationSummary errors={createErrors} />}
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={creating}>
               Cancel
@@ -347,12 +367,13 @@ export default function AdhocWorkPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
-        <DialogContent className="sm:max-w-4xl">
+      <Dialog open={!!editing} onOpenChange={(open) => { if (!open) { setEditing(null); setEditErrors([]) } }}>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Edit entry</DialogTitle>
           </DialogHeader>
           <AdhocForm form={editForm} onChange={setEditForm} />
+          {editErrors.length > 0 && <ValidationSummary errors={editErrors} />}
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditing(null)} disabled={saving}>
               Cancel
@@ -385,6 +406,18 @@ export default function AdhocWorkPage() {
   )
 }
 
+function ValidationSummary({ errors }: { errors: string[] }) {
+  return (
+    <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2">
+      <ul className="space-y-0.5 text-xs text-destructive">
+        {errors.map((e, i) => (
+          <li key={i}>• {e}</li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 function AdhocForm({
   form,
   onChange,
@@ -393,14 +426,17 @@ function AdhocForm({
   onChange: React.Dispatch<React.SetStateAction<typeof emptyForm>>
 }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="space-y-1.5">
-        <Label>Description</Label>
+        <Label>
+          Description <span className="text-destructive">*</span>
+        </Label>
         <Textarea
-          rows={6}
+          rows={5}
           value={form.description}
           maxLength={8000}
           placeholder="What did you do?"
+          className="resize-none"
           onChange={(e) => onChange((p) => ({ ...p, description: e.target.value }))}
         />
       </div>
@@ -421,7 +457,7 @@ function AdhocForm({
           min={0}
           max={999}
           step="0.5"
-          className="max-w-[120px]"
+          className="max-w-[120px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           value={form.effortHours}
           placeholder="3.5"
           onChange={(e) => onChange((p) => ({ ...p, effortHours: e.target.value }))}

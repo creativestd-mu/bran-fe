@@ -217,10 +217,10 @@ export default function TasksPage() {
     const topStats = meta ? getDisplayableStats(meta.stats).slice(0, 3) : []
     return (
       <div
-        className="rounded-lg border border-border bg-background p-3 space-y-2 cursor-pointer hover:border-primary/50 transition-colors"
+        className="min-w-0 cursor-pointer space-y-2 overflow-hidden rounded-lg border border-border bg-background p-3 transition-colors hover:border-primary/50"
         onClick={() => setDetailTask(task)}
       >
-        <p className="text-sm font-medium leading-tight">{task.title}</p>
+        <p className="break-words text-sm font-medium leading-tight">{task.title}</p>
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge variant="outline" className="text-[10px]">{task.type.replace("_", " ")}</Badge>
           {task.platform && <Badge variant="outline" className="text-[10px]">{task.platform}</Badge>}
@@ -457,7 +457,7 @@ export default function TasksPage() {
           {detailTask && (
             <div className="space-y-4">
               {detailTask.description && (
-                <p className="text-sm text-muted-foreground">{detailTask.description}</p>
+                <p className="break-words text-sm text-muted-foreground">{detailTask.description}</p>
               )}
               <div className="flex flex-wrap gap-2">
                 <Badge variant="outline">{detailTask.type.replace("_", " ")}</Badge>

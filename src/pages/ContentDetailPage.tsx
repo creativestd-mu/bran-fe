@@ -245,10 +245,10 @@ export default function ContentDetailPage() {
             )}
           </div>
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="space-y-1">
-              <h1 className="font-brand text-2xl tracking-wide text-accent">{content.title}</h1>
+            <div className="min-w-0 space-y-1">
+              <h1 className="break-all font-brand text-2xl tracking-wide text-accent">{content.title}</h1>
               {content.description && (
-                <p className="max-w-3xl text-sm text-muted-foreground">{content.description}</p>
+                <p className="break-words max-w-3xl text-sm text-muted-foreground">{content.description}</p>
               )}
             </div>
             <div className="flex items-center gap-2">

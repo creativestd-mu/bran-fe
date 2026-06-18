@@ -38,6 +38,10 @@ import { NodeDetailDialog } from "@/components/contents/NodeDetailDialog"
 import { AddNodeDialog } from "@/components/contents/AddNodeDialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import {
+  Dialog,
+  DialogContent,
+} from "@/components/ui/dialog"
 
 interface Props {
   content: Content
@@ -87,7 +91,7 @@ function NodeChip({ data }: NodeProps<ChipNode>) {
           data.onOpen(node.id)
         }
       }}
-      className="group relative w-[260px] cursor-pointer rounded-xl border-2 bg-card p-3 text-left shadow-md transition-transform hover:-translate-y-0.5 hover:shadow-lg"
+      className="group relative w-[260px] cursor-pointer overflow-hidden rounded-xl border-2 bg-card p-3 text-left shadow-md transition-transform hover:-translate-y-0.5 hover:shadow-lg"
       style={{ borderColor: border, boxShadow: `0 0 0 1px ${glow}, 0 6px 16px rgba(0,0,0,0.25)` }}
     >
       <Handle
@@ -298,26 +302,6 @@ function ContentCanvasInner({ content, canReview, initialOpenNodeId }: Props) {
 
   const toggleFullscreen = useCallback(() => setIsFullscreen((v) => !v), [])
 
-  useEffect(() => {
-    if (!isFullscreen) return
-    const original = document.body.style.overflow
-    document.body.style.overflow = "hidden"
-    const refit = setTimeout(() => flowRef.current?.fitView(fitViewOptions), 60)
-    return () => {
-      document.body.style.overflow = original
-      clearTimeout(refit)
-    }
-  }, [isFullscreen, fitViewOptions])
-
-  useEffect(() => {
-    if (!isFullscreen) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setIsFullscreen(false)
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [isFullscreen])
-
   const nextOrderIndex =
     content.nodes.length === 0
       ? 0
@@ -326,8 +310,58 @@ function ContentCanvasInner({ content, canReview, initialOpenNodeId }: Props) {
   const openNodeData = openNodeId ? content.nodes.find((n) => n.id === openNodeId) ?? null : null
   const openIndex = openNodeData ? content.nodes.findIndex((n) => n.id === openNodeData.id) : -1
 
+  const flowCanvas = (
+    <>
+      {content.nodes.length === 0 && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 text-center">
+          <p className="text-sm font-medium text-accent">No workflow nodes yet</p>
+          <p className="max-w-xs text-xs text-muted-foreground">
+            Add the first stage of this workflow. Each node represents one step (script, shoot, edit, etc.).
+          </p>
+        </div>
+      )}
+      <ReactFlow
+        nodes={nodes}
+        edges={flowEdges}
+        nodeTypes={nodeTypes}
+        onNodesChange={onNodesChange}
+        onInit={(instance) => {
+          flowRef.current = instance
+          requestAnimationFrame(() => instance.fitView(fitViewOptions))
+        }}
+        fitView
+        fitViewOptions={fitViewOptions}
+        minZoom={0.2}
+        maxZoom={1.5}
+        nodesConnectable={false}
+        nodesDraggable
+        edgesFocusable={false}
+        elementsSelectable={false}
+        panOnDrag
+        panOnScroll={false}
+        zoomOnScroll
+        proOptions={{ hideAttribution: true }}
+      >
+        <Controls
+          showFitView
+          showInteractive={false}
+          className="!border-border !bg-card !shadow-md [&>button]:!border-border [&>button]:!bg-card [&>button]:!text-foreground [&>button:hover]:!bg-muted"
+        >
+          <ControlButton
+            onClick={toggleFullscreen}
+            title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+            aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+          >
+            {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+          </ControlButton>
+        </Controls>
+        <Background color="rgba(139, 112, 62, 0.08)" gap={24} />
+      </ReactFlow>
+    </>
+  )
+
   return (
-    <div className={isFullscreen ? "fixed inset-0 z-50 flex flex-col gap-3 bg-background p-4" : "space-y-3"}>
+    <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2.5">
         <Button size="sm" variant="outline" className="gap-1.5" onClick={autoLayout}>
           <Sparkles className="h-3.5 w-3.5" /> Auto layout
@@ -344,59 +378,32 @@ function ContentCanvasInner({ content, canReview, initialOpenNodeId }: Props) {
 
       <div
         ref={containerRef}
-        className={
-          isFullscreen
-            ? "relative min-h-0 flex-1 overflow-hidden rounded-lg border border-border bg-background"
-            : "relative h-[70vh] overflow-hidden rounded-lg border border-border bg-background"
-        }
+        className="relative h-[70vh] overflow-hidden rounded-lg border border-border bg-background"
       >
-        {content.nodes.length === 0 && (
-          <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 text-center">
-            <p className="text-sm font-medium text-accent">No workflow nodes yet</p>
-            <p className="max-w-xs text-xs text-muted-foreground">
-              Add the first stage of this workflow. Each node represents one step (script, shoot, edit, etc.).
-            </p>
-          </div>
-        )}
-
-        <ReactFlow
-          nodes={nodes}
-          edges={flowEdges}
-          nodeTypes={nodeTypes}
-          onNodesChange={onNodesChange}
-          onInit={(instance) => {
-            flowRef.current = instance
-            requestAnimationFrame(() => instance.fitView(fitViewOptions))
-          }}
-          fitView
-          fitViewOptions={fitViewOptions}
-          minZoom={0.2}
-          maxZoom={1.5}
-          nodesConnectable={false}
-          nodesDraggable
-          edgesFocusable={false}
-          elementsSelectable={false}
-          panOnDrag
-          panOnScroll={false}
-          zoomOnScroll
-          proOptions={{ hideAttribution: true }}
-        >
-          <Controls
-            showFitView
-            showInteractive={false}
-            className="!border-border !bg-card !shadow-md [&>button]:!border-border [&>button]:!bg-card [&>button]:!text-foreground [&>button:hover]:!bg-muted"
-          >
-            <ControlButton
-              onClick={toggleFullscreen}
-              title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-              aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-            >
-              {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-            </ControlButton>
-          </Controls>
-          <Background color="rgba(139, 112, 62, 0.08)" gap={24} />
-        </ReactFlow>
+        {flowCanvas}
       </div>
+
+      {/* Fullscreen modal — appears as a proper dialog layer above page content */}
+      <Dialog open={isFullscreen} onOpenChange={(open) => { if (!open) setIsFullscreen(false) }}>
+        <DialogContent className="flex h-[90vh] max-w-[95vw] flex-col gap-3 p-4 [&>button]:hidden">
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2.5">
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={autoLayout}>
+              <Sparkles className="h-3.5 w-3.5" /> Auto layout
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              Click any node to open its details. Drag to rearrange.
+            </span>
+            <div className="ml-auto flex items-center gap-2">
+              <Button size="sm" className="gap-1.5" onClick={() => setAddOpen(true)}>
+                <Plus className="h-3.5 w-3.5" /> Add node
+              </Button>
+            </div>
+          </div>
+          <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg border border-border bg-background">
+            {flowCanvas}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AddNodeDialog
         open={addOpen}

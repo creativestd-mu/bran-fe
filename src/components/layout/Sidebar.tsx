@@ -22,6 +22,8 @@ import {
   Lightbulb,
   ClipboardList,
   Mic,
+  Compass,
+  Target,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -49,7 +51,9 @@ const navItems: NavItem[] = [
   { label: "Work Units", path: "/work", icon: <Mic className="h-4 w-4" /> },
   { label: "Nodes", path: "/contents", icon: <FileVideo className="h-4 w-4" /> },
   { label: "Ideation", path: "/ideation", icon: <Lightbulb className="h-4 w-4" /> },
-  { label: "AI Query", path: "/ai", icon: <Brain className="h-4 w-4" />, roles: ["admin", "manager", "content_creator"] },
+  { label: "Vision", path: "/visions", icon: <Compass className="h-4 w-4" /> },
+  { label: "KPIs", path: "/kpis", icon: <Target className="h-4 w-4" /> },
+  { label: "AI Query", path: "/ai", icon: <Brain className="h-4 w-4" />, permissions: ["query_ai"] },
   { label: "Social Stats", path: "/social-stats", icon: <BarChart3 className="h-4 w-4" />, roles: ["admin", "manager"] },
   { label: "Social Insights", path: "/social-insights", icon: <Share2 className="h-4 w-4" /> },
   { label: "Teams", path: "/teams", icon: <UsersRound className="h-4 w-4" />, roles: ["admin", "manager"] },
@@ -134,13 +138,14 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   return (
     <>
       {open && (
-        <div className="fixed inset-0 z-40 bg-black/60 lg:hidden" onClick={onClose} />
+        <div className="fixed inset-0 z-40 bg-black/60" onClick={onClose} aria-hidden="true" />
       )}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-border/50 bg-[var(--sidebar)] shadow-2xl backdrop-blur-xl transition-transform duration-300 lg:static lg:translate-x-0 lg:shadow-xl",
+          "fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-border/50 bg-[var(--sidebar)] shadow-2xl backdrop-blur-xl transition-transform duration-300",
           open ? "translate-x-0" : "-translate-x-full"
         )}
+        aria-hidden={!open}
       >
         {navContent}
       </aside>

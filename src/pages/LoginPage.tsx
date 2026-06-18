@@ -60,7 +60,7 @@ export default function LoginPage() {
     }
     try {
       const data = await authApi.googleLogin(response.credential)
-      login(data.token, normalizeAuthUser(data.user))
+      login(data.token, normalizeAuthUser(data.user), data.mostVisitedPages ?? [])
       toast.success("Welcome to the realm!")
       navigate("/dashboard")
     } catch (err: unknown) {
@@ -81,7 +81,7 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const data = await authApi.login(email.trim(), password.trim())
-      login(data.token, normalizeAuthUser(data.user))
+      login(data.token, normalizeAuthUser(data.user), data.mostVisitedPages ?? [])
       toast.success("Welcome to the realm!")
       navigate("/dashboard")
     } catch (err: unknown) {
@@ -104,7 +104,7 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const data = await authApi.login(adminEmail.trim(), adminPassword.trim())
-      login(data.token, normalizeAuthUser(data.user))
+      login(data.token, normalizeAuthUser(data.user), data.mostVisitedPages ?? [])
       toast.success("Logged in as Admin")
       setAdminDialogOpen(false)
       navigate("/dashboard")

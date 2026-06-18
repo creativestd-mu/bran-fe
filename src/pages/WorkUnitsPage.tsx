@@ -155,7 +155,6 @@ export default function WorkUnitsPage() {
 
   const [users, setUsers] = useState<User[]>([])
   const [filters, setFilters] = useState({ userId: "all", from: "", to: "" })
-  const [appliedFilters, setAppliedFilters] = useState(filters)
 
   const [createOpen, setCreateOpen] = useState(false)
   const [createForm, setCreateForm] = useState<WorkForm>(emptyForm())
@@ -192,10 +191,10 @@ export default function WorkUnitsPage() {
           pageSize: 20,
           status,
         }
-        if (isManager && appliedFilters.userId !== "all") params.userId = appliedFilters.userId
-        if (appliedFilters.from) params.from = new Date(appliedFilters.from).toISOString()
-        if (appliedFilters.to) {
-          const end = new Date(appliedFilters.to)
+        if (isManager && filters.userId !== "all") params.userId = filters.userId
+        if (filters.from) params.from = new Date(filters.from).toISOString()
+        if (filters.to) {
+          const end = new Date(filters.to)
           end.setHours(23, 59, 59, 999)
           params.to = end.toISOString()
         }
@@ -208,7 +207,7 @@ export default function WorkUnitsPage() {
         setLoading(false)
       }
     },
-    [appliedFilters, isManager, tab]
+    [filters, isManager, tab]
   )
 
   useEffect(() => {
@@ -429,7 +428,7 @@ export default function WorkUnitsPage() {
               onChange={(e) => setFilters((p) => ({ ...p, to: e.target.value }))}
             />
           </div>
-          <Button size="sm" variant="secondary" onClick={() => setAppliedFilters({ ...filters })}>
+          <Button size="sm" variant="secondary" onClick={() => fetchUnits(1, tab)}>
             Apply
           </Button>
         </div>
@@ -616,19 +615,7 @@ export default function WorkUnitsPage() {
           ) : (
             <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 md:grid-cols-2 md:min-h-[420px]">
               <div className="flex min-h-0 flex-col gap-2">
-                <div className="flex items-center justify-between gap-2">
-                  <Label className="text-xs text-muted-foreground">Transcript</Label>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    disabled={regenerating || editedTranscript.trim() === audioResult.transcript.trim()}
-                    onClick={() => void handleRegenerateFromTranscript()}
-                    className="gap-1.5 shrink-0"
-                  >
-                    {regenerating && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                    Save & regenerate
-                  </Button>
-                </div>
+                <Label className="text-xs text-muted-foreground">Transcript</Label>
                 <div className="scrollbar-invisible min-h-0 flex-1 overflow-y-auto rounded-lg border border-border/60 bg-muted/20">
                   <Textarea
                     value={editedTranscript}
@@ -653,19 +640,19 @@ export default function WorkUnitsPage() {
                     audioResult.workUnits.map((unit) => (
                       <div
                         key={unit.id}
-                        className="rounded-lg border border-border/60 bg-background/60 p-3 space-y-1"
+                        className="space-y-1 overflow-hidden rounded-lg border border-border/60 bg-background/60 p-3"
                       >
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium">{unit.title}</p>
-                          {unit.isPrivate && <Lock className="h-3 w-3 text-muted-foreground" />}
+                        <div className="flex min-w-0 items-center gap-2">
+                          <p className="min-w-0 break-words text-sm font-medium">{unit.title}</p>
+                          {unit.isPrivate && <Lock className="h-3 w-3 shrink-0 text-muted-foreground" />}
                         </div>
-                        <p className="text-xs text-muted-foreground">{unit.context}</p>
+                        <p className="break-words text-xs text-muted-foreground">{unit.context}</p>
                         {unit.steps.length > 0 && (
                           <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
                             {unit.steps.map((s) => (
-                              <li key={s.id} className="flex items-start gap-1.5">
-                                <span className="text-muted-foreground/60">•</span>
-                                <span>
+                              <li key={s.id} className="flex min-w-0 items-start gap-1.5">
+                                <span className="shrink-0 text-muted-foreground/60">•</span>
+                                <span className="min-w-0 flex-1 break-all">
                                   {s.description}
                                   {s.deadline && (
                                     <span className="ml-1 opacity-80">
@@ -686,6 +673,18 @@ export default function WorkUnitsPage() {
           )}
 
           <DialogFooter>
+            {audioResult && (
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={regenerating || editedTranscript.trim() === audioResult.transcript.trim()}
+                onClick={() => void handleRegenerateFromTranscript()}
+                className="gap-1.5"
+              >
+                {regenerating && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                Save & regenerate
+              </Button>
+            )}
             <Button variant="outline" onClick={closeRecordDialog}>
               {audioResult ? "Done" : "Cancel"}
             </Button>
@@ -736,13 +735,13 @@ function UnitList({
   }
 
   return (
-    <div className="divide-y divide-border rounded-lg border border-border">
+    <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
       {units.map((unit) => (
-        <div key={unit.id} className="p-4 space-y-2">
+        <div key={unit.id} className="space-y-2 overflow-hidden p-4">
           <div className="flex gap-3">
             <div className="min-w-0 flex-1 space-y-1">
               <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm font-medium">{unit.title}</p>
+                <p className="min-w-0 break-words text-sm font-medium">{unit.title}</p>
                 {unit.isPrivate && (
                   <Lock className="h-3.5 w-3.5 text-muted-foreground" title="Private" />
                 )}
@@ -753,7 +752,7 @@ function UnitList({
                   {unit.status}
                 </Badge>
               </div>
-              <p className="text-sm text-muted-foreground line-clamp-2">{unit.context}</p>
+              <p className="break-words text-sm text-muted-foreground line-clamp-2">{unit.context}</p>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                 {isManager && <span>{unit.user.name}</span>}
                 {tab === "OPEN" && unit.nextDueAt && (
@@ -768,7 +767,7 @@ function UnitList({
                 <span>Created {new Date(unit.createdAt).toLocaleDateString()}</span>
               </div>
             </div>
-            {canManage(unit, userId, isManager) && (
+            {canManage(unit, userId, isManager) && tab === "OPEN" && (
               <div className="flex shrink-0 gap-1">
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(unit)}>
                   <Pencil className="h-3.5 w-3.5" />
@@ -788,18 +787,20 @@ function UnitList({
           {unit.steps.length > 0 && (
             <ul className="space-y-1.5 pl-1">
               {unit.steps.map((step, i) => (
-                <li key={step.id} className="flex items-start gap-2 text-sm">
+                <li key={step.id} className="flex min-w-0 items-start gap-2 text-sm">
                   {canManage(unit, userId, isManager) ? (
                     <input
                       type="checkbox"
                       checked={step.done}
                       onChange={() => onToggleStep(unit, i)}
-                      className="mt-1 h-4 w-4 rounded border-border"
+                      className="mt-1 h-4 w-4 shrink-0 rounded border-border"
                     />
                   ) : (
                     <span className="mt-1 h-4 w-4 shrink-0" />
                   )}
-                  <span className={step.done ? "line-through text-muted-foreground" : ""}>
+                  <span
+                    className={`min-w-0 flex-1 break-all ${step.done ? "line-through text-muted-foreground" : ""}`}
+                  >
                     {step.description}
                     {step.deadline && (
                       <span className="ml-2 text-xs text-muted-foreground">
@@ -845,7 +846,7 @@ function WorkUnitForm({
   return (
     <div className="space-y-4">
       <div className="space-y-1.5">
-        <Label>Title</Label>
+        <Label>Title <span className="text-destructive">*</span></Label>
         <Input
           value={form.title}
           maxLength={500}
@@ -854,7 +855,7 @@ function WorkUnitForm({
         />
       </div>
       <div className="space-y-1.5">
-        <Label>Context</Label>
+        <Label>Context <span className="text-destructive">*</span></Label>
         <Textarea
           rows={4}
           value={form.context}

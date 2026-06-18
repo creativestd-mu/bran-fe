@@ -135,6 +135,45 @@ body {
 
 #root {
   min-height: 100vh;
+  overflow-x: clip;
+}
+
+/* Long unbroken strings (URLs, pasted text) wrap instead of spilling horizontally */
+:where(
+  p,
+  span:not(.sr-only):not([class*="truncate"]),
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  li,
+  td,
+  th,
+  label,
+  dt,
+  dd,
+  figcaption,
+  blockquote,
+  a
+) {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Flex children can shrink so wrapped text stays inside cards/panels */
+:where(.flex, .inline-flex)
+  > :where(
+    :not(.shrink-0):not([class*="shrink-0"]):not(svg):not(img):not(input):not(textarea):not(select):not(button)
+  ) {
+  min-width: 0;
+}
+
+.text-safe {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .font-brand {
@@ -184,6 +223,12 @@ body {
 
 .prose {
   line-height: 1.7;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.prose :where(p, li, td, th, h1, h2, h3, h4, a, code) {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .prose h1, .prose h2, .prose h3, .prose h4 {
   margin-top: 1.5em;
@@ -210,7 +255,9 @@ body {
   font-size: 0.875em;
 }
 
-.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+.dark input[type="date"]::-webkit-calendar-picker-indicator,
+.dark input[type="time"]::-webkit-calendar-picker-indicator {
   filter: invert(0.7) sepia(1) saturate(3) hue-rotate(10deg);
 }
 

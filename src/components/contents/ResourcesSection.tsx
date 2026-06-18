@@ -167,6 +167,8 @@ export function ResourcesSection({ node, content }: Props) {
     setCreateOpen(true)
   }
 
+  const [addAnotherPending, setAddAnotherPending] = useState(false)
+
   const saveMutation = useMutation({
     mutationFn: () => {
       const quantity = Number(form.quantity || "1")
@@ -226,9 +228,16 @@ export function ResourcesSection({ node, content }: Props) {
             : "Resource added"
       )
       invalidate()
-      setCreateOpen(false)
-      setEditing(null)
-      setForm(empty)
+      if (addAnotherPending) {
+        setAddAnotherPending(false)
+        setEditing(null)
+        setForm(empty)
+        // keep createOpen = true for another entry
+      } else {
+        setCreateOpen(false)
+        setEditing(null)
+        setForm(empty)
+      }
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to save resource"),
   })
@@ -345,7 +354,7 @@ export function ResourcesSection({ node, content }: Props) {
             return (
               <li
                 key={resource.id}
-                className="flex items-start justify-between gap-3 rounded-md border border-border bg-background px-3 py-2"
+                className="flex items-start justify-between gap-3 overflow-hidden rounded-md border border-border bg-background px-3 py-2.5"
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
@@ -363,11 +372,11 @@ export function ResourcesSection({ node, content }: Props) {
                               : "Rejected"}
                         </Badge>
                       ) : (
-                        <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">
+                        <Badge variant="success" className="text-[10px] uppercase tracking-wider">
                           Approved
                         </Badge>
                       )}
-                      <div className="truncate text-sm font-medium">{resource.name}</div>
+                      <div className="min-w-0 truncate text-sm font-semibold text-foreground">{resource.name}</div>
                     </div>
                     {isRental && currency && (
                       <div className="text-sm font-semibold tabular-nums">
@@ -375,9 +384,9 @@ export function ResourcesSection({ node, content }: Props) {
                       </div>
                     )}
                   </div>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-foreground/70">
                     {isRental && currency ? (
-                      <span>
+                      <span className="font-medium tabular-nums">
                         {qty} × {formatMoney(cost, currency)}
                       </span>
                     ) : (
@@ -385,18 +394,18 @@ export function ResourcesSection({ node, content }: Props) {
                     )}
                     {resource.notes && (
                       <>
-                        <span>·</span>
-                        <span className="line-clamp-1">{resource.notes}</span>
+                        <span className="text-border">·</span>
+                        <span className="line-clamp-1 italic">{resource.notes}</span>
                       </>
                     )}
                   </div>
 
                   {isRental && (
-                    <div className="mt-1.5 space-y-0.5 text-[11px] text-muted-foreground">
+                    <div className="mt-1.5 space-y-0.5 text-[11px] text-foreground/60">
                       {resource.requestedBy && (
                         <div>
                           Requested by{" "}
-                          <span className="font-medium text-foreground">
+                          <span className="font-medium text-foreground/90">
                             {resource.requestedBy.name}
                           </span>
                           {" "}on {formatDate(resource.createdAt)}
@@ -405,19 +414,20 @@ export function ResourcesSection({ node, content }: Props) {
                       {resource.reviewedBy && resource.reviewedAt && (
                         <div>
                           {approvalState === "APPROVED" ? "Approved" : "Rejected"} by{" "}
-                          <span className="font-medium text-foreground">
+                          <span className="font-medium text-foreground/90">
                             {resource.reviewedBy.name}
                           </span>
                           {" "}on {formatDate(resource.reviewedAt)}
                           {resource.reviewNote && (
                             <>
-                              {" "}— <span className="italic">{resource.reviewNote}</span>
+                              {" "}—{" "}
+                              <span className="italic text-foreground/80">{resource.reviewNote}</span>
                             </>
                           )}
                         </div>
                       )}
                       {!canReviewRentals && approvalState === "PENDING" && (
-                        <div>Awaiting approval from {verticalName}.</div>
+                        <div className="text-amber-500/80">Awaiting approval from {verticalName}.</div>
                       )}
                     </div>
                   )}
@@ -429,6 +439,7 @@ export function ResourcesSection({ node, content }: Props) {
                           size="sm"
                           variant="outline"
                           className="h-7 gap-1.5 border-emerald-600/50 text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-400"
+                          title="Approve this rental resource"
                           onClick={() => {
                             setReviewTarget({ resource, decision: "APPROVED" })
                             setReviewNote(resource.reviewNote ?? "")
@@ -442,6 +453,7 @@ export function ResourcesSection({ node, content }: Props) {
                         size="sm"
                         variant="outline"
                         className="h-7 gap-1.5 border-destructive/50 text-destructive hover:bg-destructive/10"
+                        title="Reject this rental resource"
                         onClick={() => {
                           setReviewTarget({ resource, decision: "REJECTED" })
                           setReviewNote(resource.reviewNote ?? "")
@@ -613,6 +625,15 @@ export function ResourcesSection({ node, content }: Props) {
             <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={saveMutation.isPending}>
               Cancel
             </Button>
+            {!editing && (
+              <Button
+                variant="secondary"
+                onClick={() => { setAddAnotherPending(true); submit() }}
+                disabled={saveMutation.isPending}
+              >
+                Save & add another
+              </Button>
+            )}
             <Button onClick={submit} disabled={saveMutation.isPending}>
               {saveMutation.isPending ? "Saving..." : editing ? "Save" : "Add"}
             </Button>
