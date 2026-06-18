@@ -24,6 +24,7 @@ import {
   Mic,
   Compass,
   Target,
+  Package,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -50,6 +51,7 @@ const navItems: NavItem[] = [
   { label: "Adhoc Work", path: "/adhoc-work", icon: <ClipboardList className="h-4 w-4" /> },
   { label: "Work Units", path: "/work", icon: <Mic className="h-4 w-4" /> },
   { label: "Nodes", path: "/contents", icon: <FileVideo className="h-4 w-4" /> },
+  { label: "Inventory", path: "/inventory", icon: <Package className="h-4 w-4" /> },
   { label: "Ideation", path: "/ideation", icon: <Lightbulb className="h-4 w-4" /> },
   { label: "Vision", path: "/visions", icon: <Compass className="h-4 w-4" /> },
   { label: "KPIs", path: "/kpis", icon: <Target className="h-4 w-4" /> },

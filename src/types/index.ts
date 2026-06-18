@@ -583,6 +583,103 @@ export function parseNotificationPayload<T = unknown>(n: Pick<Notification, "dat
   }
 }
 
+// ─── Inventory ────────────────────────────────────────────────────────────────
+
+export type InventoryStatus = "AVAILABLE" | "IN_USE" | "MAINTENANCE" | "RETIRED"
+export type ReservationStatus = "ACTIVE" | "OVERDUE" | "RETURNED" | "CANCELLED"
+
+export interface InventoryTeamAssignment {
+  teamId: string
+  isPrimary: boolean
+  assignedAt: string
+  team: {
+    id: string
+    name: string
+    verticalId: string | null
+    isActive: boolean
+  }
+}
+
+export interface InventoryActiveReservation {
+  id: string
+  status: ReservationStatus
+  reservedFrom: string
+  dueBackAt: string
+  node: {
+    id: string
+    name: string
+    startsAt: string | null
+    dueDate: string | null
+    content: { id: string; title: string }
+  }
+}
+
+export interface InventoryItem {
+  id: string
+  name: string
+  description: string | null
+  category: string | null
+  serialNumber: string | null
+  status: InventoryStatus
+  isActive: boolean
+  teams: InventoryTeamAssignment[]
+  activeReservations: InventoryActiveReservation[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface InventoryReservation {
+  id: string
+  status: ReservationStatus
+  reservedFrom: string
+  dueBackAt: string
+  returnedAt: string | null
+  notes: string | null
+  item: {
+    id: string
+    name: string
+    category: string | null
+    serialNumber: string | null
+    status: InventoryStatus
+  }
+  node: {
+    id: string
+    name: string
+    kind: string
+    startsAt: string | null
+    dueDate: string | null
+    content: { id: string; title: string; teamId: string | null }
+  }
+  resource: { id: string; name: string } | null
+  createdBy: { id: string; name: string; email: string } | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface InventoryPage {
+  items: InventoryItem[]
+  pagination: {
+    page: number
+    pageSize: number
+    total: number
+    totalPages: number
+    hasNextPage: boolean
+  }
+}
+
+export interface ReservationPage {
+  items: InventoryReservation[]
+  pagination: {
+    page: number
+    pageSize: number
+    total: number
+    totalPages: number
+    hasNextPage: boolean
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export interface ResourceRequestedData {
   contentId: string
   contentTitle: string

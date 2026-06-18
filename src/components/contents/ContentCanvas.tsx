@@ -300,6 +300,17 @@ function ContentCanvasInner({ content, canReview, initialOpenNodeId }: Props) {
     }
   }, [fitViewOptions])
 
+  // After exiting fullscreen, the dialog close animation finishes (~200ms) before
+  // the main canvas container becomes fully visible. Trigger a delayed fitView so
+  // nodes are never left tiny or off-screen when returning from fullscreen.
+  useEffect(() => {
+    if (isFullscreen) return
+    const timer = window.setTimeout(() => {
+      flowRef.current?.fitView({ ...fitViewOptions, duration: 300 })
+    }, 250)
+    return () => window.clearTimeout(timer)
+  }, [isFullscreen, fitViewOptions])
+
   const toggleFullscreen = useCallback(() => setIsFullscreen((v) => !v), [])
 
   const nextOrderIndex =

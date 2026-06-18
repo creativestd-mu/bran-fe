@@ -122,6 +122,11 @@
   border-color: var(--border);
 }
 
+html {
+  background-color: var(--background);
+  overscroll-behavior: none;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -131,6 +136,7 @@ body {
   background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior: none;
 }
 
 #root {
@@ -310,6 +316,20 @@ body[data-overlayscrollbars-initialize]::-webkit-scrollbar {
 }
 .scrollbar-invisible::-webkit-scrollbar {
   display: none;
+}
+
+/* Native date/time picker color-scheme — ensures the calendar icon and
+   the date picker dropdown adopt the correct light/dark palette so the
+   icon stays visible in dark mode. */
+:root input[type="date"],
+:root input[type="time"],
+:root input[type="datetime-local"] {
+  color-scheme: light;
+}
+.dark input[type="date"],
+.dark input[type="time"],
+.dark input[type="datetime-local"] {
+  color-scheme: dark;
 }
 
 .sr-only {

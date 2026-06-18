@@ -183,7 +183,8 @@ export default function ContentsPage() {
             </Button>
 
             {hasActiveFilter && (
-              <Button size="sm" variant="ghost" className="h-9" onClick={resetAll}>
+              <Button size="sm" variant="outline" className="h-9 gap-1.5" onClick={resetAll}>
+                <X className="h-3.5 w-3.5" />
                 Clear
               </Button>
             )}

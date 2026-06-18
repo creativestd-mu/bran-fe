@@ -562,6 +562,69 @@ export const contentsApi = {
   ) => api.post<import("@/types").ContentNodeResource>(`/contents/resources/${resourceId}/review`, data),
 }
 
+export const inventoryApi = {
+  // Items
+  list: (params?: {
+    teamId?: string
+    category?: string
+    status?: import("@/types").InventoryStatus
+    isActive?: boolean
+    availableOn?: string
+    page?: number
+    pageSize?: number
+  }) =>
+    api.get<import("@/types").InventoryPage>("/inventory", params as Record<string, unknown>),
+
+  get: (id: string) => api.get<import("@/types").InventoryItem>(`/inventory/${id}`),
+
+  create: (data: {
+    name: string
+    description?: string
+    category?: string
+    serialNumber?: string
+    status?: import("@/types").InventoryStatus
+    isActive?: boolean
+    teamIds?: string[]
+    primaryTeamId?: string
+  }) => api.post<import("@/types").InventoryItem>("/inventory", data),
+
+  update: (
+    id: string,
+    data: Partial<{
+      name: string
+      description: string | null
+      category: string | null
+      serialNumber: string | null
+      status: import("@/types").InventoryStatus
+      isActive: boolean
+      teamIds: string[]
+      primaryTeamId: string | null
+    }>
+  ) => api.put<import("@/types").InventoryItem>(`/inventory/${id}`, data),
+
+  assignTeams: (id: string, data: { teamIds: string[]; primaryTeamId?: string }) =>
+    api.put<import("@/types").InventoryItem>(`/inventory/${id}/teams`, data),
+
+  delete: (id: string) => api.delete(`/inventory/${id}`),
+
+  // Reservations
+  listReservations: (params?: {
+    inventoryItemId?: string
+    contentNodeId?: string
+    status?: import("@/types").ReservationStatus
+    overdueOnly?: boolean
+    page?: number
+    pageSize?: number
+  }) =>
+    api.get<import("@/types").ReservationPage>("/inventory/reservations", params as Record<string, unknown>),
+
+  getReservation: (id: string) =>
+    api.get<import("@/types").InventoryReservation>(`/inventory/reservations/${id}`),
+
+  returnItem: (id: string, data?: { notes?: string }) =>
+    api.post<import("@/types").InventoryReservation>(`/inventory/reservations/${id}/return`, data ?? {}),
+}
+
 export const notificationsApi = {
   list: (params?: { unreadOnly?: boolean; take?: number; skip?: number }) =>
     api.get<import("@/types").NotificationsPage>("/notifications", {

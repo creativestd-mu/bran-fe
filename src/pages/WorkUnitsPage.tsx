@@ -431,6 +431,16 @@ export default function WorkUnitsPage() {
           <Button size="sm" variant="secondary" onClick={() => fetchUnits(1, tab)}>
             Apply
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => setFilters({ userId: "all", from: "", to: "" })}
+            disabled={filters.userId === "all" && !filters.from && !filters.to}
+          >
+            <X className="h-3.5 w-3.5" />
+            Clear
+          </Button>
         </div>
       )}
 
@@ -543,13 +553,7 @@ export default function WorkUnitsPage() {
       </Dialog>
 
       <Dialog open={recordOpen} onOpenChange={(open) => !open && closeRecordDialog()}>
-        <DialogContent
-          className={
-            audioResult
-              ? "flex max-h-[90vh] w-[calc(100%-2rem)] max-w-6xl flex-col gap-4 overflow-hidden sm:max-w-6xl"
-              : "sm:max-w-2xl"
-          }
-        >
+        <DialogContent className="flex max-h-[90vh] w-[calc(100%-2rem)] max-w-4xl flex-col gap-4 overflow-hidden sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>{audioResult ? "Review work units" : "Record voice memo"}</DialogTitle>
           </DialogHeader>

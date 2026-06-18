@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
-import { ChevronLeft, ChevronRight, Loader2, Pencil, Plus, Trash2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, Loader2, Pencil, Plus, Trash2, X } from "lucide-react"
 
 const emptyForm = { description: "", output: "", effortHours: "" }
 
@@ -253,10 +253,12 @@ export default function AdhocWorkPage() {
           </Button>
           <Button
             size="sm"
-            variant="ghost"
+            variant="outline"
+            className="gap-1.5"
             onClick={clearFilters}
             disabled={filters.userId === "all" && !filters.from && !filters.to}
           >
+            <X className="h-3.5 w-3.5" />
             Clear all
           </Button>
         </div>

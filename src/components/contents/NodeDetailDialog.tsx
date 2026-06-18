@@ -8,7 +8,6 @@ import {
   ExternalLink,
   Lock,
   Pencil,
-  ShieldAlert,
   Trash2,
 } from "lucide-react"
 import { contentsApi } from "@/lib/api"
@@ -124,8 +123,19 @@ export function NodeDetailDialog({ open, onOpenChange, node, content, index, can
         startsAt: editForm.startsAt ? new Date(editForm.startsAt).toISOString() : null,
         dueDate: editForm.dueDate ? new Date(editForm.dueDate).toISOString() : null,
       }),
-    onSuccess: () => {
+    onSuccess: (updatedNode) => {
       toast.success("Node updated")
+      // Optimistically patch the cached content so the canvas and dialog header
+      // reflect the new kind/name immediately, without waiting for the refetch.
+      queryClient.setQueryData(["content", content.id], (old: Content | undefined) => {
+        if (!old) return old
+        return {
+          ...old,
+          nodes: old.nodes.map((n) =>
+            n.id === updatedNode.id ? { ...n, ...updatedNode } : n
+          ),
+        }
+      })
       invalidate()
       setEditOpen(false)
     },
@@ -221,31 +231,6 @@ export function NodeDetailDialog({ open, onOpenChange, node, content, index, can
 
         <ScrollArea className="max-h-[70vh]">
           <div className="space-y-0">
-            {pendingRentals.length > 0 && (
-              <div className="border-b border-border bg-amber-500/10 px-5 py-3 text-xs text-amber-500">
-                <div className="flex items-start gap-2">
-                  <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
-                  <div>
-                    <div className="font-semibold">
-                      {pendingRentals.length} rental resource
-                      {pendingRentals.length === 1 ? "" : "s"} awaiting approval
-                    </div>
-                    <ul className="mt-1 list-disc pl-4 text-amber-500/90">
-                      {pendingRentals.map((r) => (
-                        <li key={r.id}>
-                          {r.name}
-                          {r.approvalState === "REJECTED" ? " (rejected)" : ""}
-                        </li>
-                      ))}
-                    </ul>
-                    <div className="mt-1 text-amber-500/80">
-                      The node can be moved to In Progress or Blocked, but cannot be marked
-                      Completed until each rental is approved.
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Notes */}
             {node.notes && (

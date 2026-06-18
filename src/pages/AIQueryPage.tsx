@@ -102,7 +102,7 @@ export default function AIQueryPage() {
           </Button>
         </CardHeader>
         <ScrollArea className="flex-1">
-          <div className="space-y-1 px-4 pb-4">
+          <div className="space-y-1 px-3 pb-4">
             {historyLoading ? (
               <Skeleton className="h-12 w-full" />
             ) : history.length === 0 ? (
@@ -111,7 +111,7 @@ export default function AIQueryPage() {
               history.map((entry) => (
                 <button
                   key={entry.id}
-                  className={`w-full rounded-lg p-2.5 text-left text-sm transition-colors ${
+                  className={`w-full rounded-lg p-2.5 pr-3 text-left text-sm transition-colors ${
                     activeResult?.id === entry.id
                       ? "bg-primary/15 text-accent"
                       : "text-muted-foreground hover:bg-muted"

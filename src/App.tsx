@@ -29,6 +29,7 @@ import AdhocWorkPage from "@/pages/AdhocWorkPage"
 import WorkUnitsPage from "@/pages/WorkUnitsPage"
 import VisionsPage from "@/pages/VisionsPage"
 import KPIsPage from "@/pages/KPIsPage"
+import InventoryPage from "@/pages/InventoryPage"
 
 function App() {
   const { user, loading } = useAuth()
@@ -151,6 +152,7 @@ function App() {
         />
         <Route path="/contents" element={<ContentsPage />} />
         <Route path="/contents/:id" element={<ContentDetailPage />} />
+        <Route path="/inventory" element={<InventoryPage />} />
         <Route
           path="/ideation"
           element={<IdeationPage />}

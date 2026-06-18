@@ -19,6 +19,7 @@ import {
   Mic,
   Compass,
   Target,
+  Package,
 } from "lucide-react"
 import { hasPermission, hasRole, type User } from "@/types"
 
@@ -58,11 +59,11 @@ export const NAV_SEARCH_INDEX: NavSearchItem[] = [
   {
     label: "Adhoc Work",
     path: "/adhoc-work",
-    description: "Log off-platform work, shoots, coordination, hours",
+    description: "Log off-platform work, coordination, hours",
     icon: ClipboardList,
     keywords: [
       "adhoc", "log work", "log hours", "off platform", "off-platform",
-      "shoot", "shoots", "coordination", "deliverable", "effort", "hours",
+      "coordination", "deliverable", "effort", "hours",
       "manual work", "time entry", "extra work", "miscellaneous work",
       "field work", "track time", "time log",
     ],
@@ -82,12 +83,13 @@ export const NAV_SEARCH_INDEX: NavSearchItem[] = [
   {
     label: "Content",
     path: "/contents",
-    description: "Productions and coverage pieces with workflow nodes",
+    description: "Productions and coverage pieces with workflow nodes including shoots",
     icon: FileVideo,
     keywords: [
       "content", "production", "coverage", "piece", "video", "article",
       "workflow", "node", "publish", "draft", "in review", "published",
       "rental", "output", "resource", "review", "content piece", "new content",
+      "shoot", "shoots", "shoot day", "shoot node", "film", "filming", "on set",
     ],
   },
   {
@@ -244,6 +246,19 @@ export const NAV_SEARCH_INDEX: NavSearchItem[] = [
       "setup", "admin settings", "preferences",
     ],
     roles: ["admin"],
+  },
+  {
+    label: "Inventory",
+    path: "/inventory",
+    description: "Equipment catalog — cameras, mics, lights, gear and reservations",
+    icon: Package,
+    keywords: [
+      "inventory", "equipment", "gear", "camera", "mic", "microphone", "light", "lighting",
+      "lens", "tripod", "stabilizer", "monitor", "storage card", "battery", "power",
+      "catalog", "kit", "available", "in use", "maintenance", "retired",
+      "reservation", "reserved", "overdue", "return", "returned", "check out",
+      "serial number", "team ownership", "borrow", "asset",
+    ],
   },
   {
     label: "Utility",
