@@ -178,6 +178,10 @@ export const usersApi = {
   me: () => api.get<import("@/types").User>("/users/me"),
   list: (params?: { page?: number; pageSize?: number; roleId?: string; isActive?: boolean }) =>
     api.get<import("@/types").PaginatedResponse<import("@/types").User>>("/users", params as Record<string, unknown>),
+  getHierarchy: (params?: { isActive?: boolean }) =>
+    api.get<import("@/types").UserHierarchyResult>("/users/hierarchy", params as Record<string, unknown>),
+  upsertHierarchy: (data: { members: Array<{ userId: string; managerUserId?: string | null }> }) =>
+    api.put<import("@/types").UserHierarchyResult>("/users/hierarchy", data),
   create: (data: {
     email: string
     name: string
@@ -185,11 +189,22 @@ export const usersApi = {
     description?: string
     phone?: string
     designation?: string
+    managerUserId?: string | null
     isActive?: boolean
   }) => api.post<import("@/types").User>("/users", data),
   getById: (id: string) => api.get<import("@/types").User>(`/users/${id}`),
-  update: (id: string, data: Partial<{ name: string; description: string; phone: string; designation: string; roleId: string; isActive: boolean }>) =>
-    api.put<import("@/types").User>(`/users/${id}`, data),
+  update: (
+    id: string,
+    data: Partial<{
+      name: string
+      description: string
+      phone: string
+      designation: string
+      roleId: string
+      isActive: boolean
+      managerUserId: string | null
+    }>
+  ) => api.put<import("@/types").User>(`/users/${id}`, data),
   delete: (id: string) => api.delete(`/users/${id}`),
   getSocialAccounts: (id: string) => api.get<import("@/types").SocialAccount[]>(`/users/${id}/social-accounts`),
   addSocialAccount: (id: string, data: { platform: string; platformAccountId: string; handle?: string }) =>
@@ -306,6 +321,7 @@ export const workApi = {
     context: string
     status?: import("@/types").WorkUnitStatus
     isPrivate?: boolean
+    projectId?: string | null
     steps?: Array<{
       description: string
       deadline?: string | null
@@ -334,6 +350,7 @@ export const workApi = {
       context: string
       status: import("@/types").WorkUnitStatus
       isPrivate: boolean
+      projectId: string | null
       steps: Array<{
         description: string
         deadline?: string | null

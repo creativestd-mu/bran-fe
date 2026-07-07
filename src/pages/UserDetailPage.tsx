@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
+import { useAuth } from "@/contexts/AuthContext"
 import { usersApi, rolesApi, tasksApi } from "@/lib/api"
 import type { User, Role, Task, SocialAccount } from "@/types"
+import { hasPermission } from "@/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,12 +26,22 @@ import {
 export default function UserDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { user: currentUser } = useAuth()
+  const canManageUsers = hasPermission(currentUser, "manage_users")
   const [user, setUser] = useState<User | null>(null)
   const [roles, setRoles] = useState<Role[]>([])
+  const [managerOptions, setManagerOptions] = useState<User[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
   const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>([])
   const [loading, setLoading] = useState(true)
-  const [editForm, setEditForm] = useState({ name: "", description: "", phone: "", designation: "", roleId: "" })
+  const [editForm, setEditForm] = useState({
+    name: "",
+    description: "",
+    phone: "",
+    designation: "",
+    roleId: "",
+    managerUserId: null as string | null,
+  })
   const [saving, setSaving] = useState(false)
   const [addSocialOpen, setAddSocialOpen] = useState(false)
   const [socialForm, setSocialForm] = useState({ platform: "YOUTUBE" as string, platformAccountId: "", handle: "" })
@@ -39,22 +51,25 @@ export default function UserDetailPage() {
     const load = async () => {
       setLoading(true)
       try {
-        const [userData, roleData, taskData, socialData] = await Promise.all([
+        const [userData, roleData, taskData, socialData, allUsers] = await Promise.all([
           usersApi.getById(id),
           rolesApi.list(),
           tasksApi.list({ userId: id, page: 1, pageSize: 20 }),
           usersApi.getSocialAccounts(id),
+          usersApi.list({ page: 1, pageSize: 200, isActive: true }),
         ])
         setUser(userData)
         setRoles(roleData)
         setTasks(taskData.items)
         setSocialAccounts(socialData)
+        setManagerOptions(allUsers.items.filter((u) => u.id !== id))
         setEditForm({
           name: userData.name,
           description: userData.description || "",
           phone: userData.phone || "",
           designation: userData.designation || "",
           roleId: userData.roleId,
+          managerUserId: userData.managerUserId ?? null,
         })
       } catch {
         toast.error("Failed to load user details")
@@ -77,7 +92,17 @@ export default function UserDetailPage() {
     }
     setSaving(true)
     try {
-      const updated = await usersApi.update(id, editForm)
+      const payload: Parameters<typeof usersApi.update>[1] = {
+        name: editForm.name,
+        description: editForm.description,
+        phone: editForm.phone,
+        designation: editForm.designation,
+        roleId: editForm.roleId,
+      }
+      if (canManageUsers) {
+        payload.managerUserId = editForm.managerUserId
+      }
+      const updated = await usersApi.update(id, payload)
       setUser(updated)
       toast.success("User updated")
     } catch {
@@ -146,7 +171,19 @@ export default function UserDetailPage() {
         <div>
           <h1 className="text-xl font-semibold">{user.name}</h1>
           <p className="text-sm text-muted-foreground">{user.email}</p>
-          <Badge variant="outline" className="mt-1 capitalize">{user.role.name.replace("_", " ")}</Badge>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="capitalize">{user.role.name.replace("_", " ")}</Badge>
+            {user.manager && (
+              <Badge variant="secondary" className="text-xs">
+                Reports to {user.manager.name}
+              </Badge>
+            )}
+          </div>
+          {user.directReports && user.directReports.length > 0 && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Direct reports: {user.directReports.map((report) => report.name).join(", ")}
+            </p>
+          )}
         </div>
       </div>
 
@@ -188,6 +225,25 @@ export default function UserDetailPage() {
                     </SelectContent>
                   </Select>
                 </div>
+                {canManageUsers && (
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Manager</Label>
+                    <Select
+                      value={editForm.managerUserId ?? "none"}
+                      onValueChange={(v) => setEditForm((p) => ({ ...p, managerUserId: v === "none" ? null : v }))}
+                    >
+                      <SelectTrigger><SelectValue placeholder="No manager" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No manager</SelectItem>
+                        {managerOptions.map((manager) => (
+                          <SelectItem key={manager.id} value={manager.id}>
+                            {manager.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Description</Label>

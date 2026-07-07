@@ -1,7 +1,7 @@
 import dagre from "dagre"
 import type { Connection, Edge, Node } from "@xyflow/react"
 import { MarkerType } from "@xyflow/react"
-import type { HierarchyKind, HierarchyMember, MemberRole, User } from "@/types"
+import type { HierarchyKind, HierarchyMember, MemberRole, User, UserHierarchyMember } from "@/types"
 
 export const NODE_WIDTH = 260
 export const NODE_HEIGHT = 132
@@ -251,4 +251,48 @@ export function validateHierarchyGraph(
   }
 
   return { errors: [...new Set(errors)], warnings: [...new Set(warnings)] }
+}
+
+function userHierarchyMemberToUser(member: UserHierarchyMember, paletteUser?: User): User {
+  if (paletteUser) return paletteUser
+  return {
+    id: member.id,
+    googleId: "",
+    email: member.email,
+    name: member.name,
+    avatarUrl: null,
+    description: null,
+    phone: null,
+    designation: member.designation,
+    roleId: member.role.id,
+    isActive: member.isActive,
+    managerUserId: member.managerUserId,
+    lastLoginAt: null,
+    createdAt: "",
+    updatedAt: "",
+    role: member.role,
+    manager: member.manager,
+  }
+}
+
+export function usersToHierarchyMembers(
+  members: UserHierarchyMember[],
+  paletteUsers: User[] = []
+): HierarchyMember[] {
+  const paletteById = new Map(paletteUsers.map((user) => [user.id, user]))
+  return members.map((member) => ({
+    id: member.id,
+    userId: member.id,
+    memberRole: DEFAULT_MEMBER_ROLE,
+    isActive: member.isActive,
+    reportsToUserId: member.managerUserId,
+    user: userHierarchyMemberToUser(member, paletteById.get(member.id)),
+  }))
+}
+
+export function toUserHierarchyPayloads(nodes: Node<HierarchyNodeData>[], edges: Edge[]) {
+  return toHierarchyPayloads(nodes, edges).map((node) => ({
+    userId: node.userId,
+    managerUserId: node.reportsToUserId,
+  }))
 }

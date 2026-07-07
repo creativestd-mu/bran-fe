@@ -1,5 +1,5 @@
 import type { Node } from "@xyflow/react"
-import type { MemberRole } from "@/types"
+import type { MemberRole, HierarchyKind } from "@/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -10,6 +10,8 @@ import type { HierarchyNodeData } from "./hierarchyUtils"
 interface NodeInspectorProps {
   node: Node<HierarchyNodeData> | null
   managerName: string | null
+  kind?: HierarchyKind
+  allowRemove?: boolean
   onRoleChange: (memberRole: MemberRole) => void
   onSetTopLevel: () => void
   onRemove: () => void
@@ -17,7 +19,15 @@ interface NodeInspectorProps {
 
 const memberRoleOptions: MemberRole[] = ["LEAD", "MEMBER", "CONTRIBUTOR"]
 
-export function NodeInspector({ node, managerName, onRoleChange, onSetTopLevel, onRemove }: NodeInspectorProps) {
+export function NodeInspector({
+  node,
+  managerName,
+  kind = "team",
+  allowRemove = true,
+  onRoleChange,
+  onSetTopLevel,
+  onRemove,
+}: NodeInspectorProps) {
   if (!node) {
     return (
       <Card className="h-full">
@@ -63,21 +73,23 @@ export function NodeInspector({ node, managerName, onRoleChange, onSetTopLevel, 
           </Badge>
         </div>
 
-        <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">Member role</p>
-          <Select value={node.data.memberRole} onValueChange={(value) => onRoleChange(value as MemberRole)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {memberRoleOptions.map((role) => (
-                <SelectItem key={role} value={role}>
-                  {role}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {kind !== "user" && (
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">Member role</p>
+            <Select value={node.data.memberRole} onValueChange={(value) => onRoleChange(value as MemberRole)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {memberRoleOptions.map((role) => (
+                  <SelectItem key={role} value={role}>
+                    {role}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         <div className="space-y-1">
           <p className="text-xs text-muted-foreground">Effective manager</p>
@@ -88,9 +100,11 @@ export function NodeInspector({ node, managerName, onRoleChange, onSetTopLevel, 
           <Button variant="outline" className="w-full" onClick={onSetTopLevel}>
             Set as top-level
           </Button>
-          <Button variant="destructive" className="w-full" onClick={onRemove}>
-            Remove from hierarchy
-          </Button>
+          {allowRemove && (
+            <Button variant="destructive" className="w-full" onClick={onRemove}>
+              Remove from hierarchy
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>

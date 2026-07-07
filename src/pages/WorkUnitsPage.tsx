@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { useAuth } from "@/contexts/AuthContext"
-import { usersApi, workApi } from "@/lib/api"
-import type { AudioWorkResult, User, WorkUnit, WorkUnitStatus } from "@/types"
+import { projectsApi, usersApi, workApi } from "@/lib/api"
+import type { AudioWorkResult, Project, User, WorkUnit, WorkUnitStatus } from "@/types"
 import { hasPermission, hasRole } from "@/types"
 import {
   firstValidationError,
@@ -36,6 +36,7 @@ import { toast } from "sonner"
 import {
   ChevronLeft,
   ChevronRight,
+  FolderKanban,
   Loader2,
   Lock,
   Mic,
@@ -57,6 +58,7 @@ type WorkForm = {
   context: string
   status: WorkUnitStatus
   isPrivate: boolean
+  projectId: string | null
   steps: StepFormRow[]
 }
 
@@ -67,6 +69,7 @@ const emptyForm = (): WorkForm => ({
   context: "",
   status: "OPEN",
   isPrivate: false,
+  projectId: null,
   steps: [],
 })
 
@@ -102,6 +105,7 @@ function unitToForm(unit: WorkUnit): WorkForm {
     context: unit.context,
     status: unit.status,
     isPrivate: unit.isPrivate,
+    projectId: unit.projectId ?? null,
     steps: unit.steps.map((s) => ({
       description: s.description,
       deadline: fromIsoDeadline(s.deadline),
@@ -116,6 +120,7 @@ function formToPayload(form: WorkForm) {
     context: form.context.trim(),
     status: form.status,
     isPrivate: form.isPrivate,
+    projectId: form.projectId ?? null,
     steps: form.steps.map((s) => ({
       description: s.description.trim(),
       deadline: toIsoDeadline(s.deadline),
@@ -172,7 +177,14 @@ export default function WorkUnitsPage() {
   const [regenerating, setRegenerating] = useState(false)
   const [audioResult, setAudioResult] = useState<AudioWorkResult | null>(null)
   const [editedTranscript, setEditedTranscript] = useState("")
+  const [audioProjectOverrides, setAudioProjectOverrides] = useState<Record<string, string | null>>({})
+  const [savingOverrides, setSavingOverrides] = useState(false)
   const recorder = useAudioRecorder()
+
+  const [projects, setProjects] = useState<Project[]>([])
+  useEffect(() => {
+    projectsApi.list().then(setProjects).catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (!isManager) return
@@ -303,7 +315,18 @@ export default function WorkUnitsPage() {
     setRecordOpen(false)
     setAudioResult(null)
     setEditedTranscript("")
+    setAudioProjectOverrides({})
     recorder.reset()
+  }
+
+  const initAudioResult = (result: AudioWorkResult) => {
+    setAudioResult(result)
+    setEditedTranscript(result.transcript)
+    const initialOverrides: Record<string, string | null> = {}
+    for (const unit of result.workUnits) {
+      initialOverrides[unit.id] = unit.projectId ?? null
+    }
+    setAudioProjectOverrides(initialOverrides)
   }
 
   const handleUploadRecording = async () => {
@@ -315,8 +338,7 @@ export default function WorkUnitsPage() {
     setUploading(true)
     try {
       const result = await workApi.createAudio(blob, "memo.webm")
-      setAudioResult(result)
-      setEditedTranscript(result.transcript)
+      initAudioResult(result)
       toast.success(`Created ${result.workUnits.length} work unit(s)`)
       fetchUnits(1, tab)
     } catch (err) {
@@ -339,8 +361,7 @@ export default function WorkUnitsPage() {
         audioResult.workUnits.map((unit) => workApi.delete(unit.id).catch(() => {}))
       )
       const result = await workApi.regenerateFromTranscript(transcript)
-      setAudioResult(result)
-      setEditedTranscript(result.transcript)
+      initAudioResult(result)
       toast.success(`Regenerated ${result.workUnits.length} work unit(s)`)
       fetchUnits(1, tab)
     } catch (err) {
@@ -504,7 +525,7 @@ export default function WorkUnitsPage() {
           <DialogHeader>
             <DialogTitle>New work unit</DialogTitle>
           </DialogHeader>
-          <WorkUnitForm form={createForm} onChange={setCreateForm} />
+          <WorkUnitForm form={createForm} onChange={setCreateForm} projects={projects} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={creating}>
               Cancel
@@ -522,7 +543,7 @@ export default function WorkUnitsPage() {
           <DialogHeader>
             <DialogTitle>Edit work unit</DialogTitle>
           </DialogHeader>
-          <WorkUnitForm form={editForm} onChange={setEditForm} />
+          <WorkUnitForm form={editForm} onChange={setEditForm} projects={projects} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditing(null)} disabled={saving}>
               Cancel
@@ -644,7 +665,7 @@ export default function WorkUnitsPage() {
                     audioResult.workUnits.map((unit) => (
                       <div
                         key={unit.id}
-                        className="space-y-1 overflow-hidden rounded-lg border border-border/60 bg-background/60 p-3"
+                        className="space-y-1.5 overflow-hidden rounded-lg border border-border/60 bg-background/60 p-3"
                       >
                         <div className="flex min-w-0 items-center gap-2">
                           <p className="min-w-0 break-words text-sm font-medium">{unit.title}</p>
@@ -668,6 +689,30 @@ export default function WorkUnitsPage() {
                             ))}
                           </ul>
                         )}
+                        <div className="flex items-center gap-1.5 pt-0.5">
+                          <FolderKanban className="h-3 w-3 shrink-0 text-muted-foreground" />
+                          <Select
+                            value={audioProjectOverrides[unit.id] ?? "none"}
+                            onValueChange={(v) =>
+                              setAudioProjectOverrides((prev) => ({
+                                ...prev,
+                                [unit.id]: v === "none" ? null : v,
+                              }))
+                            }
+                          >
+                            <SelectTrigger className="h-6 gap-1 border-0 bg-transparent px-1 text-xs text-muted-foreground shadow-none hover:bg-muted/40 focus:ring-0">
+                              <SelectValue placeholder="No project" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">No project</SelectItem>
+                              {projects.map((p) => (
+                                <SelectItem key={p.id} value={p.id}>
+                                  {p.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                     ))
                   )}
@@ -689,7 +734,36 @@ export default function WorkUnitsPage() {
                 Save & regenerate
               </Button>
             )}
-            <Button variant="outline" onClick={closeRecordDialog}>
+            <Button
+              variant="outline"
+              disabled={savingOverrides}
+              onClick={async () => {
+                if (!audioResult || Object.keys(audioProjectOverrides).length === 0) {
+                  closeRecordDialog()
+                  return
+                }
+                setSavingOverrides(true)
+                try {
+                  const changes = audioResult.workUnits.filter(
+                    (u) => audioProjectOverrides[u.id] !== (u.projectId ?? null)
+                  )
+                  if (changes.length > 0) {
+                    await Promise.all(
+                      changes.map((u) =>
+                        workApi.update(u.id, { projectId: audioProjectOverrides[u.id] ?? null })
+                      )
+                    )
+                    fetchUnits(1, tab)
+                  }
+                } catch {
+                  toast.error("Failed to save project assignments")
+                } finally {
+                  setSavingOverrides(false)
+                }
+                closeRecordDialog()
+              }}
+            >
+              {savingOverrides && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
               {audioResult ? "Done" : "Cancel"}
             </Button>
           </DialogFooter>
@@ -755,6 +829,12 @@ function UnitList({
                 <Badge variant={unit.status === "OPEN" ? "info" : "secondary"} className="text-[10px]">
                   {unit.status}
                 </Badge>
+                {unit.project && (
+                  <Badge variant="outline" className="gap-1 text-[10px] text-muted-foreground">
+                    <FolderKanban className="h-2.5 w-2.5" />
+                    {unit.project.name}
+                  </Badge>
+                )}
               </div>
               <p className="break-words text-sm text-muted-foreground line-clamp-2">{unit.context}</p>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
@@ -825,9 +905,11 @@ function UnitList({
 function WorkUnitForm({
   form,
   onChange,
+  projects,
 }: {
   form: WorkForm
   onChange: React.Dispatch<React.SetStateAction<WorkForm>>
+  projects: Project[]
 }) {
   const updateStep = (index: number, patch: Partial<StepFormRow>) => {
     onChange((prev) => ({
@@ -867,6 +949,25 @@ function WorkUnitForm({
           placeholder="What happened and why it matters"
           onChange={(e) => onChange((p) => ({ ...p, context: e.target.value }))}
         />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Project</Label>
+        <Select
+          value={form.projectId ?? "none"}
+          onValueChange={(v) => onChange((p) => ({ ...p, projectId: v === "none" ? null : v }))}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="No project" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">No project</SelectItem>
+            {projects.map((p) => (
+              <SelectItem key={p.id} value={p.id}>
+                {p.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div className="flex flex-wrap gap-6">
         <div className="space-y-1.5">

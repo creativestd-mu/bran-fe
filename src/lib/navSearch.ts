@@ -31,6 +31,9 @@ export interface NavSearchItem {
   keywords: string[]
   roles?: Array<"admin" | "manager" | "content_creator">
   permissions?: string[]
+  /** Base priority added to the text-match score so high-value pages win ties.
+   *  Higher number = shown earlier when multiple results match equally. */
+  weight?: number
 }
 
 export const NAV_SEARCH_INDEX: NavSearchItem[] = [
@@ -73,6 +76,7 @@ export const NAV_SEARCH_INDEX: NavSearchItem[] = [
     path: "/work",
     description: "Meeting outcomes and follow-ups from voice memos",
     icon: Mic,
+    weight: 10,
     keywords: [
       "work unit", "meeting", "follow up", "followup", "follow-up",
       "voice memo", "voice", "record", "recording", "audio", "transcribe",
@@ -282,7 +286,7 @@ function scoreNavSearchItem(query: string, item: NavSearchItem): number {
     ...item.keywords.map((k) => k.toLowerCase()),
   ]
 
-  let s = 0
+  let s = item.weight ?? 0
 
   for (const h of haystackPhrases) {
     if (h === q) s += 40

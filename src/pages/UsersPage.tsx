@@ -35,6 +35,7 @@ const defaultCreateForm = {
   description: "",
   phone: "",
   designation: "",
+  managerUserId: null as string | null,
   isActive: true,
 }
 
@@ -50,6 +51,7 @@ export default function UsersPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [createLoading, setCreateLoading] = useState(false)
   const [createForm, setCreateForm] = useState(defaultCreateForm)
+  const [managerOptions, setManagerOptions] = useState<User[]>([])
 
   const fetchUsers = async (page = 1) => {
     setLoading(true)
@@ -69,6 +71,7 @@ export default function UsersPage() {
 
   useEffect(() => {
     rolesApi.list().then(setRoles).catch(() => {})
+    usersApi.list({ page: 1, pageSize: 200, isActive: true }).then((res) => setManagerOptions(res.items)).catch(() => {})
     fetchUsers()
   }, [])
 
@@ -134,6 +137,7 @@ export default function UsersPage() {
         description: createForm.description.trim() || undefined,
         phone: createForm.phone.trim() || undefined,
         designation: createForm.designation.trim() || undefined,
+        managerUserId: createForm.managerUserId,
         isActive: createForm.isActive,
       })
       toast.success("User created successfully")
@@ -210,6 +214,7 @@ export default function UsersPage() {
                     <TableHead>User</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead className="hidden md:table-cell">Designation</TableHead>
+                    <TableHead className="hidden lg:table-cell">Manager</TableHead>
                     <TableHead className="hidden lg:table-cell">Last Login</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
@@ -235,6 +240,9 @@ export default function UsersPage() {
                       <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
                         {u.designation || "—"}
                       </TableCell>
+                      <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
+                        {u.manager?.name || "—"}
+                      </TableCell>
                       <TableCell className="hidden lg:table-cell text-xs text-muted-foreground">
                         {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : "Never"}
                       </TableCell>
@@ -249,7 +257,7 @@ export default function UsersPage() {
                   ))}
                   {filtered.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                         No users found
                       </TableCell>
                     </TableRow>
@@ -353,6 +361,28 @@ export default function UsersPage() {
                 onChange={(e) => setCreateForm((prev) => ({ ...prev, designation: e.target.value }))}
                 placeholder="Senior Content Creator"
               />
+            </div>
+
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Manager</Label>
+              <Select
+                value={createForm.managerUserId ?? "none"}
+                onValueChange={(value) =>
+                  setCreateForm((prev) => ({ ...prev, managerUserId: value === "none" ? null : value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="No manager" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No manager</SelectItem>
+                  {managerOptions.map((manager) => (
+                    <SelectItem key={manager.id} value={manager.id}>
+                      {manager.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2 sm:col-span-2">

@@ -48,11 +48,22 @@ interface HierarchyCanvasProps {
   members: HierarchyMember[]
   users: User[]
   loading?: boolean
+  allowRemove?: boolean
   onReload: () => Promise<void>
   adapter: {
     addMember: (contextId: string, data: import("@/types").HierarchyMemberPayload) => Promise<unknown>
     updateMember: (memberId: string, data: Partial<import("@/types").HierarchyMemberPayload>) => Promise<unknown>
     deleteMember: (memberId: string) => Promise<unknown>
+    upsertGraph?: (
+      contextId: string,
+      data: {
+        members: Array<{
+          userId: string
+          memberRole: import("@/types").HierarchyMemberPayload["memberRole"]
+          reportsToUserId: string | null
+        }>
+      }
+    ) => Promise<unknown>
   }
 }
 
@@ -65,6 +76,7 @@ type CanvasNodeData = HierarchyNodeData & {
   isRoot?: boolean
   level?: number
   onRemove?: (nodeId: string) => void
+  showMemberRole?: boolean
 }
 
 const LEVEL_COLORS = [
@@ -116,6 +128,8 @@ function HierarchyNodeCard({ id, data }: NodeProps<CanvasNodeData>) {
           variant="ghost"
           className="h-5 w-5 shrink-0 text-muted-foreground hover:text-destructive"
           onClick={() => data.onRemove?.(id)}
+          disabled={!data.onRemove}
+          style={data.onRemove ? undefined : { visibility: "hidden" }}
         >
           <X className="h-3 w-3" />
         </Button>
@@ -129,9 +143,15 @@ function HierarchyNodeCard({ id, data }: NodeProps<CanvasNodeData>) {
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium leading-tight">{data.user.name}</p>
           <div className="mt-0.5 flex items-center gap-1.5">
-            <Badge variant="outline" className="max-w-24 truncate text-[10px] capitalize">
-              {data.memberRole}
-            </Badge>
+            {data.showMemberRole === false ? (
+              <Badge variant="outline" className="max-w-24 truncate text-[10px] capitalize">
+                {data.user.role?.name?.replace("_", " ") ?? "User"}
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="max-w-24 truncate text-[10px] capitalize">
+                {data.memberRole}
+              </Badge>
+            )}
             <span className={`h-2 w-2 rounded-full ${data.user.isActive ? "bg-green-500" : "bg-muted-foreground"}`} />
           </div>
         </div>
@@ -151,7 +171,16 @@ const nodeTypes = {
   hierarchyNode: HierarchyNodeCard,
 }
 
-function HierarchyCanvasInner({ kind, contextId, members, users, loading, onReload, adapter }: HierarchyCanvasProps) {
+function HierarchyCanvasInner({
+  kind,
+  contextId,
+  members,
+  users,
+  loading,
+  allowRemove = true,
+  onReload,
+  adapter,
+}: HierarchyCanvasProps) {
   const [nodes, setNodes] = useState<Node<HierarchyNodeData>[]>([])
   const [edges, setEdges] = useState<Edge[]>([])
   const [originalNodes, setOriginalNodes] = useState<Node<HierarchyNodeData>[]>([])
@@ -285,10 +314,11 @@ function HierarchyCanvasInner({ kind, contextId, members, users, loading, onRelo
         ...node.data,
         isRoot: roots.includes(node.id),
         level: levels.get(node.id) ?? 0,
-        onRemove: removeNode,
+        onRemove: allowRemove ? removeNode : undefined,
+        showMemberRole: kind !== "user",
       },
     }))
-  }, [nodes, roots, levels, removeNode])
+  }, [nodes, roots, levels, removeNode, allowRemove, kind])
 
   const onNodesChange = useCallback(
     (changes: NodeChange<Node<HierarchyNodeData>>[]) => {
@@ -601,6 +631,8 @@ function HierarchyCanvasInner({ kind, contextId, members, users, loading, onRelo
         <NodeInspector
           node={selectedNode}
           managerName={managerName}
+          kind={kind}
+          allowRemove={allowRemove}
           onRoleChange={(memberRole) => selectedNodeId && updateRole(selectedNodeId, memberRole)}
           onSetTopLevel={setTopLevel}
           onRemove={() => selectedNodeId && removeNode(selectedNodeId)}

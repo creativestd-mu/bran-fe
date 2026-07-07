@@ -15,12 +15,39 @@ export interface User {
   designation: string | null
   roleId: string
   isActive: boolean
+  managerUserId?: string | null
   lastLoginAt: string | null
   createdAt: string
   updatedAt: string
   role: { id: string; name: string }
+  manager?: UserManagerRef | null
+  directReports?: UserManagerRef[]
   permissions?: string[]
   socialAccounts?: SocialAccount[]
+}
+
+export interface UserManagerRef {
+  id: string
+  name: string
+  email: string
+  designation: string | null
+}
+
+export interface UserHierarchyMember {
+  id: string
+  name: string
+  email: string
+  designation: string | null
+  managerUserId: string | null
+  isActive: boolean
+  role: { id: string; name: string }
+  manager: UserManagerRef | null
+  directReports?: UserHierarchyMember[]
+}
+
+export interface UserHierarchyResult {
+  members: UserHierarchyMember[]
+  hierarchy: UserHierarchyMember[]
 }
 
 export interface Role {
@@ -109,6 +136,9 @@ export interface WorkUnit {
   context: string
   status: WorkUnitStatus
   isPrivate: boolean
+  projectId: string | null
+  project: { id: string; name: string; status: string } | null
+  audioRecordingId: string | null
   closedAt: string | null
   nextDueAt: string | null
   firstDueAt: string | null
@@ -120,6 +150,13 @@ export interface WorkUnit {
 
 export interface AudioWorkResult {
   transcript: string
+  audioRecording: {
+    id: string
+    userId: string
+    filePath: string
+    source: string
+    createdAt: string
+  }
   workUnits: WorkUnit[]
 }
 
@@ -271,12 +308,33 @@ export interface Team {
   members: HierarchyMember[]
 }
 
+export interface ProjectPhase {
+  id: string
+  name: string
+  objectives: string | null
+  deadline: string | null
+  status: string
+  orderIndex: number
+}
+
 export interface Project {
   id: string
   name: string
   description?: string | null
+  objectives?: string | null
+  finalLink?: string | null
   verticalId?: string | null
+  status?: string
+  startsAt?: string | null
+  endsAt?: string | null
+  createdAt?: string
+  updatedAt?: string
+  vertical?: { id: string; name: string; slug: string }
+  createdBy?: { id: string; name: string; email: string }
+  phases?: ProjectPhase[]
   members: HierarchyMember[]
+  hierarchy?: HierarchyMember[]
+  _count?: { members: number }
 }
 
 export interface Vertical {
@@ -300,7 +358,7 @@ export interface HierarchyMemberPayload {
   isActive?: boolean
 }
 
-export type HierarchyKind = "team" | "project"
+export type HierarchyKind = "team" | "project" | "user"
 
 export type RoleName =
   | "admin"
