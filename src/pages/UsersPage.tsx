@@ -166,8 +166,8 @@ export default function UsersPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative w-full max-w-sm flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search users..."
@@ -176,9 +176,9 @@ export default function UsersPage() {
                 className="pl-9"
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
               <Select value={roleFilter} onValueChange={setRoleFilter}>
-                <SelectTrigger className="w-[140px]">
+                <SelectTrigger className="w-full sm:w-[140px]">
                   <SelectValue placeholder="Role" />
                 </SelectTrigger>
                 <SelectContent>
@@ -189,7 +189,7 @@ export default function UsersPage() {
                 </SelectContent>
               </Select>
               <Select value={activeFilter} onValueChange={setActiveFilter}>
-                <SelectTrigger className="w-[130px]">
+                <SelectTrigger className="w-full sm:w-[130px]">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -208,6 +208,45 @@ export default function UsersPage() {
             </div>
           ) : (
             <>
+              <div className="space-y-3 md:hidden">
+                {filtered.map((u) => (
+                  <button
+                    key={u.id}
+                    type="button"
+                    className="flex w-full items-start gap-3 rounded-xl border border-border/70 bg-card/60 p-3 text-left transition-colors hover:bg-muted/40"
+                    onClick={() => navigate(`/users/${u.id}`)}
+                  >
+                    <Avatar className="h-10 w-10 shrink-0">
+                      <AvatarImage src={u.avatarUrl ?? undefined} />
+                      <AvatarFallback className="text-xs">{initials(u.name)}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{u.name}</p>
+                          <p className="truncate text-xs text-muted-foreground">{u.email}</p>
+                        </div>
+                        <Switch
+                          checked={u.isActive}
+                          onCheckedChange={() => toggleActive(u)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <Badge variant="outline" className="capitalize">{u.role.name.replace("_", " ")}</Badge>
+                        {u.designation ? (
+                          <Badge variant="secondary" className="text-[10px]">{u.designation}</Badge>
+                        ) : null}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+                {filtered.length === 0 && (
+                  <p className="py-8 text-center text-muted-foreground">No users found</p>
+                )}
+              </div>
+
+              <div className="hidden md:block">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -264,8 +303,9 @@ export default function UsersPage() {
                   )}
                 </TableBody>
               </Table>
+              </div>
 
-              <div className="flex items-center justify-between pt-4">
+              <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-muted-foreground">
                   {pagination.total} total users
                 </p>

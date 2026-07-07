@@ -389,7 +389,7 @@ function ContentCanvasInner({ content, canReview, initialOpenNodeId }: Props) {
 
       <div
         ref={containerRef}
-        className="relative h-[70vh] overflow-hidden rounded-lg border border-border bg-background"
+        className="relative h-[50vh] min-h-[280px] overflow-hidden rounded-lg border border-border bg-background sm:h-[60vh] lg:h-[70vh]"
       >
         {flowCanvas}
       </div>

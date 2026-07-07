@@ -317,23 +317,23 @@ export default function TasksPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         <Select value={filters.status} onValueChange={(v) => setFilters((p) => ({ ...p, status: v }))}>
-          <SelectTrigger className="w-[130px]"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-[130px]"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
             {STATUS_COLUMNS.map((s) => <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={filters.type} onValueChange={(v) => setFilters((p) => ({ ...p, type: v }))}>
-          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Type" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-[160px]"><SelectValue placeholder="Type" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Types</SelectItem>
             {TASK_TYPES.map((t) => <SelectItem key={t} value={t}>{t.replace("_", " ")}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={filters.platform} onValueChange={(v) => setFilters((p) => ({ ...p, platform: v }))}>
-          <SelectTrigger className="w-[140px]"><SelectValue placeholder="Platform" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-[140px]"><SelectValue placeholder="Platform" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Platforms</SelectItem>
             {PLATFORMS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}

@@ -337,7 +337,40 @@ function SocialInsightsPage() {
               <span className="pagination-text">{recordsPagination.total} total records</span>
             </div>
 
-            <div className="records-table-wrap">
+            <div className="records-mobile-list md:hidden">
+              {records.map((record) => {
+                const linkedInRow = source === "linkedin" ? linkedInRows.find((item) => item.id === record.id) : undefined
+                return (
+                  <article key={record.id} className="record-mobile-card">
+                    <div className="record-mobile-card-header">
+                      <strong>{record.source}</strong>
+                      <span>{record.sentiment}</span>
+                    </div>
+                    {source === "linkedin" && linkedInRow ? (
+                      <p className="record-mobile-card-subtitle">{linkedInRow.accountName} · {linkedInRow.postType}</p>
+                    ) : null}
+                    <dl className="record-mobile-card-grid">
+                      <div><dt>Source ID</dt><dd>{record.sourceItemId}</dd></div>
+                      <div><dt>Engagement</dt><dd>{formatNumber(recordEngagementTotal(record))}</dd></div>
+                      <div><dt>Views</dt><dd>{formatNumber(record.estimatedViews)}</dd></div>
+                      <div><dt>Reach</dt><dd>{formatNumber(record.estimatedReach)}</dd></div>
+                      {source === "linkedin" && linkedInRow ? (
+                        <>
+                          <div><dt>Impressions</dt><dd>{formatNumber(linkedInRow.metrics.impression_count)}</dd></div>
+                          <div><dt>ER</dt><dd>{formatPercent(linkedInRow.metrics.engagement_rate)}</dd></div>
+                        </>
+                      ) : null}
+                      <div className="record-mobile-card-wide"><dt>Mentioned</dt><dd>{formatDateTime(linkedInRow?.createdAt || record.mentionedAt)}</dd></div>
+                    </dl>
+                    {source === "linkedin" && linkedInRow?.url ? (
+                      <a href={linkedInRow.url} target="_blank" rel="noreferrer" className="record-mobile-card-link">Open post</a>
+                    ) : null}
+                  </article>
+                )
+              })}
+            </div>
+
+            <div className="records-table-wrap hidden md:block">
               <table className="records-table">
                 <thead>
                   <tr>

@@ -409,7 +409,7 @@ export function KhushiToolModal({ open, onOpenChange }: KhushiToolModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[92vh] overflow-y-auto">
+      <DialogContent className="max-h-[92vh] w-[calc(100%-1rem)] max-w-6xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-accent">
             <Sparkles className="h-5 w-5 text-pink-500" />

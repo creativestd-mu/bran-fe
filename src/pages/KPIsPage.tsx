@@ -267,10 +267,10 @@ export default function KPIsPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         {canManage && (
           <Select value={userFilter} onValueChange={setUserFilter}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="Person" />
             </SelectTrigger>
             <SelectContent>
@@ -284,7 +284,7 @@ export default function KPIsPage() {
           </Select>
         )}
         <Select value={keyFilter} onValueChange={setKeyFilter}>
-          <SelectTrigger className="w-[140px]">
+          <SelectTrigger className="w-full sm:w-[140px]">
             <SelectValue placeholder="Priority" />
           </SelectTrigger>
           <SelectContent>
@@ -294,7 +294,7 @@ export default function KPIsPage() {
           </SelectContent>
         </Select>
         <Select value={activeFilter} onValueChange={setActiveFilter}>
-          <SelectTrigger className="w-[130px]">
+          <SelectTrigger className="w-full sm:w-[130px]">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>

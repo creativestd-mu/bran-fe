@@ -9,7 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
-import { Send, Brain, Clock, Users, BarChart3, Target, Compass, Sparkles, Plus } from "lucide-react"
+import { Send, Brain, Clock, Users, BarChart3, Target, Compass, Sparkles, Plus, History } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { validateRequiredText } from "@/lib/validation"
 import Markdown from "react-markdown"
 
@@ -39,6 +40,7 @@ export default function AIQueryPage() {
   const [history, setHistory] = useState<QueryEntry[]>([])
   const [activeResult, setActiveResult] = useState<QueryEntry | null>(null)
   const [historyLoading, setHistoryLoading] = useState(true)
+  const [historyOpen, setHistoryOpen] = useState(false)
 
   useEffect(() => {
     aiApi
@@ -91,6 +93,34 @@ export default function AIQueryPage() {
 
   const meta = activeResult?.response.meta
 
+  const historyList = (
+    <div className="space-y-1">
+      {historyLoading ? (
+        <Skeleton className="h-12 w-full" />
+      ) : history.length === 0 ? (
+        <p className="py-4 text-xs text-muted-foreground">No queries yet.</p>
+      ) : (
+        history.map((entry) => (
+          <button
+            key={entry.id}
+            className={`w-full rounded-lg p-2.5 pr-3 text-left text-sm transition-colors ${
+              activeResult?.id === entry.id
+                ? "bg-primary/15 text-accent"
+                : "text-muted-foreground hover:bg-muted"
+            }`}
+            onClick={() => {
+              setActiveResult(entry)
+              setHistoryOpen(false)
+            }}
+          >
+            <p className="truncate font-medium">{entry.query}</p>
+            <p className="mt-0.5 text-xs opacity-60">{entry.timestamp.toLocaleString()}</p>
+          </button>
+        ))
+      )}
+    </div>
+  )
+
   return (
     <div className="flex h-full min-h-0 gap-4">
       <Card className="hidden w-72 shrink-0 flex-col lg:flex">
@@ -103,32 +133,17 @@ export default function AIQueryPage() {
         </CardHeader>
         <ScrollArea className="flex-1">
           <div className="space-y-1 px-3 pb-4">
-            {historyLoading ? (
-              <Skeleton className="h-12 w-full" />
-            ) : history.length === 0 ? (
-              <p className="py-4 text-xs text-muted-foreground">No queries yet.</p>
-            ) : (
-              history.map((entry) => (
-                <button
-                  key={entry.id}
-                  className={`w-full rounded-lg p-2.5 pr-3 text-left text-sm transition-colors ${
-                    activeResult?.id === entry.id
-                      ? "bg-primary/15 text-accent"
-                      : "text-muted-foreground hover:bg-muted"
-                  }`}
-                  onClick={() => setActiveResult(entry)}
-                >
-                  <p className="truncate font-medium">{entry.query}</p>
-                  <p className="mt-0.5 text-xs opacity-60">{entry.timestamp.toLocaleString()}</p>
-                </button>
-              ))
-            )}
+            {historyList}
           </div>
         </ScrollArea>
       </Card>
 
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex items-center justify-end gap-2 px-2 pt-2 lg:hidden">
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setHistoryOpen(true)}>
+            <History className="h-3.5 w-3.5" />
+            History
+          </Button>
           <Button variant="outline" size="sm" className="gap-1.5" onClick={startNewChat}>
             <Plus className="h-3.5 w-3.5" />
             New chat
@@ -245,13 +260,13 @@ export default function AIQueryPage() {
 
         <Separator />
 
-        <div className="p-4">
+        <div className="p-3 sm:p-4">
           <form
             onSubmit={(e) => {
               e.preventDefault()
               void handleSubmit()
             }}
-            className="flex gap-2"
+            className="flex flex-col gap-2 sm:flex-row"
           >
             <Input
               value={query}
@@ -260,13 +275,22 @@ export default function AIQueryPage() {
               disabled={loading}
               className="flex-1"
             />
-            <Button type="submit" disabled={loading || !query.trim()} className="gap-2">
+            <Button type="submit" disabled={loading || !query.trim()} className="gap-2 sm:shrink-0">
               <Send className="h-4 w-4" />
               {loading ? "Thinking..." : "Ask"}
             </Button>
           </form>
         </div>
       </div>
+
+      <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Query History</DialogTitle>
+          </DialogHeader>
+          {historyList}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -281,9 +281,9 @@ export default function VisionsPage() {
         )}
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         <Select value={horizonFilter} onValueChange={setHorizonFilter}>
-          <SelectTrigger className="w-[150px]">
+          <SelectTrigger className="w-full sm:w-[150px]">
             <SelectValue placeholder="Horizon" />
           </SelectTrigger>
           <SelectContent>
@@ -293,7 +293,7 @@ export default function VisionsPage() {
           </SelectContent>
         </Select>
         <Select value={scopeFilter} onValueChange={setScopeFilter}>
-          <SelectTrigger className="w-[140px]">
+          <SelectTrigger className="w-full sm:w-[140px]">
             <SelectValue placeholder="Scope" />
           </SelectTrigger>
           <SelectContent>

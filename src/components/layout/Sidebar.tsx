@@ -140,14 +140,14 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   return (
     <>
       {open && (
-        <div className="fixed inset-0 z-40 bg-black/60" onClick={onClose} aria-hidden="true" />
+        <div className="fixed inset-0 z-40 bg-black/60 lg:hidden" onClick={onClose} aria-hidden="true" />
       )}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-border/50 bg-[var(--sidebar)] shadow-2xl backdrop-blur-xl transition-transform duration-300",
-          open ? "translate-x-0" : "-translate-x-full"
+          "fixed inset-y-0 left-0 z-50 flex w-72 shrink-0 flex-col border-r border-border/50 bg-[var(--sidebar)] shadow-2xl backdrop-blur-xl transition-transform duration-300",
+          "lg:static lg:z-auto lg:translate-x-0 lg:shadow-none",
+          open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
-        aria-hidden={!open}
       >
         {navContent}
       </aside>

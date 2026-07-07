@@ -178,14 +178,14 @@ export default function IdeationPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="font-brand text-2xl tracking-wide text-accent">Ideation</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Capture ideas and discover teammates with similar directions.
           </p>
         </div>
-        <Button size="sm" className="gap-2" onClick={() => setCreateOpen(true)}>
+        <Button size="sm" className="gap-2 self-start" onClick={() => setCreateOpen(true)}>
           <Plus className="h-4 w-4" />
           New idea
         </Button>

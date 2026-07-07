@@ -40,7 +40,8 @@ import {
   type HierarchyNodeData,
   validateHierarchyGraph,
 } from "./hierarchyUtils"
-import { useHierarchySync } from "@/hooks/useHierarchySync"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { useMediaQuery } from "@/hooks/useMediaQuery"
 
 interface HierarchyCanvasProps {
   kind: HierarchyKind
@@ -103,7 +104,7 @@ function HierarchyNodeCard({ id, data }: NodeProps<CanvasNodeData>) {
 
   return (
     <div
-      className="relative w-[220px] rounded-lg border-2 bg-card p-3 shadow-lg transition"
+      className="relative w-[min(220px,calc(100vw-3rem))] rounded-lg border-2 bg-card p-3 shadow-lg transition"
       style={{
         borderColor: palette.border,
         boxShadow: `0 0 0 1px ${palette.glow}, 0 4px 12px rgba(0,0,0,0.25)`,
@@ -196,6 +197,7 @@ function HierarchyCanvasInner({
   const flowRef = useRef<ReactFlowInstance<Node<HierarchyNodeData>, Edge> | null>(null)
   const hasInitialFitRef = useRef(false)
   const { syncGraph } = useHierarchySync({ contextId, adapter })
+  const isDesktop = useMediaQuery("(min-width: 1024px)")
   const userById = useMemo(() => new Map(users.map((user) => [user.id, user])), [users])
   const enrichedMembers = useMemo<HierarchyMember[]>(() => {
     return members.map((member) => {
@@ -532,19 +534,19 @@ function HierarchyCanvasInner({
       {/* Compact toolbar */}
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2.5">
         <Button size="sm" variant="outline" className="gap-1.5" disabled={past.length === 0} onClick={undo}>
-          <Undo2 className="h-3.5 w-3.5" /> Undo
+          <Undo2 className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Undo</span>
         </Button>
         <Button size="sm" variant="outline" className="gap-1.5" disabled={future.length === 0} onClick={redo}>
-          <Redo2 className="h-3.5 w-3.5" /> Redo
+          <Redo2 className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Redo</span>
         </Button>
         <Button size="sm" variant="outline" className="gap-1.5" onClick={autoLayout}>
-          <Sparkles className="h-3.5 w-3.5" /> Auto layout
+          <Sparkles className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Auto layout</span>
         </Button>
         <Button size="sm" variant="outline" className="gap-1.5" onClick={exportPng}>
-          <Download className="h-3.5 w-3.5" /> Export PNG
+          <Download className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Export PNG</span>
         </Button>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
           <Button size="sm" variant="outline" className="gap-1.5" disabled={saving} onClick={() => saveHierarchy("draft")}>
             <Save className="h-3.5 w-3.5" /> {saving ? "Saving..." : "Save Draft"}
           </Button>
@@ -567,7 +569,7 @@ function HierarchyCanvasInner({
           className={
             isFullscreen
               ? "relative h-full min-h-0 overflow-hidden rounded-lg border border-border"
-              : "relative h-[74vh] overflow-hidden rounded-lg border border-border"
+              : "relative h-[50vh] min-h-[280px] overflow-hidden rounded-lg border border-border sm:h-[60vh] lg:h-[74vh]"
           }
           ref={wrapperRef}
         >
@@ -628,16 +630,43 @@ function HierarchyCanvasInner({
           </ReactFlow>
         </div>
 
-        <NodeInspector
-          node={selectedNode}
-          managerName={managerName}
-          kind={kind}
-          allowRemove={allowRemove}
-          onRoleChange={(memberRole) => selectedNodeId && updateRole(selectedNodeId, memberRole)}
-          onSetTopLevel={setTopLevel}
-          onRemove={() => selectedNodeId && removeNode(selectedNodeId)}
-        />
+        <div className="hidden lg:block">
+          <NodeInspector
+            node={selectedNode}
+            managerName={managerName}
+            kind={kind}
+            allowRemove={allowRemove}
+            onRoleChange={(memberRole) => selectedNodeId && updateRole(selectedNodeId, memberRole)}
+            onSetTopLevel={setTopLevel}
+            onRemove={() => selectedNodeId && removeNode(selectedNodeId)}
+          />
+        </div>
       </div>
+
+      <Dialog
+        open={!!selectedNode && !isDesktop}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedNodeId(null)
+            setSelectedEdgeId(null)
+          }
+        }}
+      >
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Node Inspector</DialogTitle>
+          </DialogHeader>
+          <NodeInspector
+            node={selectedNode}
+            managerName={managerName}
+            kind={kind}
+            allowRemove={allowRemove}
+            onRoleChange={(memberRole) => selectedNodeId && updateRole(selectedNodeId, memberRole)}
+            onSetTopLevel={setTopLevel}
+            onRemove={() => selectedNodeId && removeNode(selectedNodeId)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

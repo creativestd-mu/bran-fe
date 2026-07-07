@@ -14,10 +14,10 @@ export default function HierarchyPage() {
       </div>
 
       <Tabs defaultValue="org" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="org">Org Hierarchy</TabsTrigger>
-          <TabsTrigger value="team">Team Hierarchy Canvas</TabsTrigger>
-          <TabsTrigger value="project">Project Hierarchy Canvas</TabsTrigger>
+        <TabsList className="h-auto w-full max-w-full justify-start overflow-x-auto">
+          <TabsTrigger value="org" className="shrink-0">Org Hierarchy</TabsTrigger>
+          <TabsTrigger value="team" className="shrink-0">Team Canvas</TabsTrigger>
+          <TabsTrigger value="project" className="shrink-0">Project Canvas</TabsTrigger>
         </TabsList>
         <TabsContent value="org" className="space-y-4">
           <UserHierarchyCanvas />

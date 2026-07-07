@@ -52,22 +52,28 @@ export function TopBar({ onMenuClick, onSearchOpen }: TopBarProps) {
   const isDashboardHome = location.pathname === "/dashboard"
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/45 bg-transparent px-4 py-3 backdrop-blur-xl lg:px-6">
-      <div className="flex h-14 items-center gap-4 rounded-2xl border border-border/60 bg-card/80 px-3 shadow-lg shadow-black/5 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 border-b border-border/45 bg-transparent px-3 py-3 backdrop-blur-xl sm:px-4 lg:px-6">
+      <div className="flex h-14 items-center gap-2 rounded-2xl border border-border/60 bg-card/80 px-2 shadow-lg shadow-black/5 backdrop-blur-xl sm:gap-3 sm:px-3">
         <Button
           variant="ghost"
           size="icon"
           onClick={onMenuClick}
           aria-label="Open menu"
           title="Open menu"
-          className="rounded-full border border-border/70 bg-card/70 text-muted-foreground shadow-sm hover:bg-muted hover:text-foreground"
+          className="rounded-full border border-border/70 bg-card/70 text-muted-foreground shadow-sm hover:bg-muted hover:text-foreground lg:hidden"
         >
           <Menu className="h-5 w-5" />
         </Button>
 
-        <Link to="/dashboard" className="font-brand text-xl tracking-wider text-foreground">
+        <Link to="/dashboard" className="font-brand text-xl tracking-wider text-foreground lg:hidden">
           BRan
         </Link>
+
+        <div className="min-w-0 flex-1 sm:hidden">
+          {!isDashboardHome && (
+            <h1 className="truncate text-sm font-semibold text-foreground">{pageTitle}</h1>
+          )}
+        </div>
 
         <div className="hidden min-w-0 sm:block">
           {!isDashboardHome && (

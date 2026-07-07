@@ -30,7 +30,13 @@ export function UserPalette({ users }: UserPaletteProps) {
   }, [users, search, roleFilter, activeFilter])
 
   return (
-    <Card className="h-full">
+    <details className="group lg:contents">
+      <summary className="flex cursor-pointer list-none items-center justify-between rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium text-accent lg:hidden [&::-webkit-details-marker]:hidden">
+        User Palette
+        <span className="text-xs text-muted-foreground group-open:hidden">Show</span>
+        <span className="hidden text-xs text-muted-foreground group-open:inline">Hide</span>
+      </summary>
+      <Card className="h-full lg:block">
       <CardHeader className="space-y-3">
         <CardTitle className="text-base text-accent">User Palette</CardTitle>
         <Input placeholder="Search users" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -60,7 +66,7 @@ export function UserPalette({ users }: UserPaletteProps) {
           </Select>
         </div>
       </CardHeader>
-      <CardContent className="max-h-[62vh] space-y-2 overflow-y-auto">
+      <CardContent className="max-h-[40vh] space-y-2 overflow-y-auto lg:max-h-[62vh]">
         {filteredUsers.map((user) => {
           const initials = user.name
             .split(" ")
@@ -97,5 +103,6 @@ export function UserPalette({ users }: UserPaletteProps) {
         {filteredUsers.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">No users found.</p>}
       </CardContent>
     </Card>
+    </details>
   )
 }
