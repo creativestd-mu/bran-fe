@@ -1,5 +1,5 @@
 import type { Node } from "@xyflow/react"
-import type { MemberRole, HierarchyKind } from "@/types"
+import type { MemberRole, HierarchyKind, User } from "@/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -10,9 +10,12 @@ import type { HierarchyNodeData } from "./hierarchyUtils"
 interface NodeInspectorProps {
   node: Node<HierarchyNodeData> | null
   managerName: string | null
+  managerUserId?: string | null
+  managerOptions?: User[]
   kind?: HierarchyKind
   allowRemove?: boolean
   onRoleChange: (memberRole: MemberRole) => void
+  onManagerChange?: (managerUserId: string | null) => void
   onSetTopLevel: () => void
   onRemove: () => void
 }
@@ -22,9 +25,12 @@ const memberRoleOptions: MemberRole[] = ["LEAD", "MEMBER", "CONTRIBUTOR"]
 export function NodeInspector({
   node,
   managerName,
+  managerUserId = null,
+  managerOptions = [],
   kind = "team",
   allowRemove = true,
   onRoleChange,
+  onManagerChange,
   onSetTopLevel,
   onRemove,
 }: NodeInspectorProps) {
@@ -91,9 +97,29 @@ export function NodeInspector({
           </div>
         )}
 
-        <div className="space-y-1">
-          <p className="text-xs text-muted-foreground">Effective manager</p>
-          <p className="text-sm">{managerName ?? "Top-level leader"}</p>
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground">Manager</p>
+          {onManagerChange ? (
+            <Select
+              value={managerUserId ?? "none"}
+              onValueChange={(value) => onManagerChange(value === "none" ? null : value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="No manager" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No manager</SelectItem>
+                {managerOptions.map((manager) => (
+                  <SelectItem key={manager.id} value={manager.id}>
+                    {manager.name}
+                    {!manager.isActive ? " (inactive)" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <p className="text-sm">{managerName ?? "Top-level leader"}</p>
+          )}
         </div>
 
         <div className="space-y-2">

@@ -26,5 +26,7 @@ export function getActiveRequestsCount() {
 export function subscribeToNetworkActivity(listener: Listener) {
   listeners.add(listener)
   listener(activeRequests)
-  return () => listeners.delete(listener)
+  return () => {
+    listeners.delete(listener)
+  }
 }

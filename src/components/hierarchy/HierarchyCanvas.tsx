@@ -18,6 +18,7 @@ import {
   type Node,
   type NodeChange,
   type NodeProps,
+  type NodeTypes,
   type ReactFlowInstance,
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
@@ -39,8 +40,10 @@ import {
   isConnectionValid,
   type HierarchyNodeData,
   validateHierarchyGraph,
+  NODE_HEIGHT,
 } from "./hierarchyUtils"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { useHierarchySync } from "@/hooks/useHierarchySync"
 import { useMediaQuery } from "@/hooks/useMediaQuery"
 
 interface HierarchyCanvasProps {
@@ -90,7 +93,7 @@ const LEVEL_COLORS = [
 
 const DEFAULT_FIT_PADDING = 0.62
 
-function HierarchyNodeCard({ id, data }: NodeProps<CanvasNodeData>) {
+function HierarchyNodeCard({ id, data }: NodeProps<Node<CanvasNodeData>>) {
   const initials = data.user.name
     .split(" ")
     .map((part) => part[0])
@@ -168,7 +171,7 @@ function HierarchyNodeCard({ id, data }: NodeProps<CanvasNodeData>) {
   )
 }
 
-const nodeTypes = {
+const nodeTypes: NodeTypes = {
   hierarchyNode: HierarchyNodeCard,
 }
 
@@ -360,6 +363,79 @@ function HierarchyCanvasInner({
     if (!managerId) return null
     return nodes.find((node) => node.id === managerId)?.data.user.name ?? null
   }, [selectedNode, edges, nodes])
+
+  const managerUserId = useMemo(() => {
+    if (!selectedNode) return null
+    const managerId = getManagerNodeId(selectedNode.id, edges)
+    if (!managerId) return null
+    return nodes.find((node) => node.id === managerId)?.data.user.id ?? null
+  }, [selectedNode, edges, nodes])
+
+  const managerSelectOptions = useMemo(() => {
+    if (!selectedNode) return users
+    return users.filter((user) => user.id !== selectedNode.data.user.id)
+  }, [selectedNode, users])
+
+  const setManagerByUserId = useCallback(
+    (managerUserId: string | null) => {
+      if (!selectedNodeId || !selectedNode) return
+
+      let nextNodes = nodes
+      let managerNodeId: string | null = null
+
+      if (managerUserId) {
+        const existingManagerNode = nodes.find((node) => node.data.user.id === managerUserId)
+        if (existingManagerNode) {
+          managerNodeId = existingManagerNode.id
+        } else {
+          const managerUser = userById.get(managerUserId)
+          if (!managerUser) {
+            toast.error("Manager user not found")
+            return
+          }
+          const newNode: Node<HierarchyNodeData> = {
+            id: `temp-${managerUser.id}-${Date.now()}`,
+            type: "hierarchyNode",
+            position: {
+              x: selectedNode.position.x,
+              y: selectedNode.position.y - (NODE_HEIGHT + 40),
+            },
+            data: {
+              user: managerUser,
+              memberRole: "MEMBER",
+              isActive: managerUser.isActive,
+              contextId,
+              kind,
+            },
+          }
+          nextNodes = [...nodes, newNode]
+          managerNodeId = newNode.id
+        }
+      }
+
+      const withoutIncoming = edges.filter((edge) => edge.target !== selectedNodeId)
+      if (!managerNodeId) {
+        pushSnapshot()
+        if (nextNodes !== nodes) setNodes(nextNodes)
+        setEdges(withoutIncoming)
+        return
+      }
+
+      const result = isConnectionValid(
+        { source: managerNodeId, target: selectedNodeId, sourceHandle: null, targetHandle: null },
+        withoutIncoming
+      )
+      if (!result.valid) {
+        toast.error(result.reason ?? "Invalid manager")
+        return
+      }
+
+      pushSnapshot()
+      if (nextNodes !== nodes) setNodes(nextNodes)
+      setEdges([...withoutIncoming, createHierarchyEdge(managerNodeId, selectedNodeId)])
+    },
+    [selectedNodeId, selectedNode, nodes, edges, userById, contextId, kind, pushSnapshot]
+  )
 
   const setTopLevel = useCallback(() => {
     if (!selectedNodeId) return
@@ -613,7 +689,6 @@ function HierarchyCanvasInner({
             proOptions={{ hideAttribution: true }}
           >
             <Controls
-              showMiniMap={false}
               showFitView={false}
               className="!border-border !bg-card !shadow-md [&>button]:!border-border [&>button]:!bg-card [&>button]:!text-foreground [&>button:hover]:!bg-muted [&>button:nth-of-type(3)]:!order-2"
             >
@@ -634,9 +709,12 @@ function HierarchyCanvasInner({
           <NodeInspector
             node={selectedNode}
             managerName={managerName}
+            managerUserId={managerUserId}
+            managerOptions={managerSelectOptions}
             kind={kind}
             allowRemove={allowRemove}
             onRoleChange={(memberRole) => selectedNodeId && updateRole(selectedNodeId, memberRole)}
+            onManagerChange={setManagerByUserId}
             onSetTopLevel={setTopLevel}
             onRemove={() => selectedNodeId && removeNode(selectedNodeId)}
           />
@@ -659,9 +737,12 @@ function HierarchyCanvasInner({
           <NodeInspector
             node={selectedNode}
             managerName={managerName}
+            managerUserId={managerUserId}
+            managerOptions={managerSelectOptions}
             kind={kind}
             allowRemove={allowRemove}
             onRoleChange={(memberRole) => selectedNodeId && updateRole(selectedNodeId, memberRole)}
+            onManagerChange={setManagerByUserId}
             onSetTopLevel={setTopLevel}
             onRemove={() => selectedNodeId && removeNode(selectedNodeId)}
           />

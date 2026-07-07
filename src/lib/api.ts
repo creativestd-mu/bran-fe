@@ -178,6 +178,24 @@ export const usersApi = {
   me: () => api.get<import("@/types").User>("/users/me"),
   list: (params?: { page?: number; pageSize?: number; roleId?: string; isActive?: boolean }) =>
     api.get<import("@/types").PaginatedResponse<import("@/types").User>>("/users", params as Record<string, unknown>),
+  listAll: async (params?: { roleId?: string; isActive?: boolean }) => {
+    const pageSize = 200
+    let page = 1
+    const items: import("@/types").User[] = []
+
+    while (true) {
+      const response = await api.get<import("@/types").PaginatedResponse<import("@/types").User>>("/users", {
+        ...params,
+        page,
+        pageSize,
+      } as Record<string, unknown>)
+      items.push(...response.items)
+      if (!response.pagination.hasNextPage) break
+      page += 1
+    }
+
+    return items.sort((a, b) => a.name.localeCompare(b.name))
+  },
   getHierarchy: (params?: { isActive?: boolean }) =>
     api.get<import("@/types").UserHierarchyResult>("/users/hierarchy", params as Record<string, unknown>),
   upsertHierarchy: (data: { members: Array<{ userId: string; managerUserId?: string | null }> }) =>

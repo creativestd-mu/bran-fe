@@ -71,7 +71,7 @@ export default function UsersPage() {
 
   useEffect(() => {
     rolesApi.list().then(setRoles).catch(() => {})
-    usersApi.list({ page: 1, pageSize: 200, isActive: true }).then((res) => setManagerOptions(res.items)).catch(() => {})
+    usersApi.listAll().then(setManagerOptions).catch(() => {})
     fetchUsers()
   }, [])
 
@@ -419,6 +419,7 @@ export default function UsersPage() {
                   {managerOptions.map((manager) => (
                     <SelectItem key={manager.id} value={manager.id}>
                       {manager.name}
+                      {!manager.isActive ? " (inactive)" : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>

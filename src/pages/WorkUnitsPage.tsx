@@ -821,7 +821,7 @@ function UnitList({
               <div className="flex flex-wrap items-center gap-2">
                 <p className="min-w-0 break-words text-sm font-medium">{unit.title}</p>
                 {unit.isPrivate && (
-                  <Lock className="h-3.5 w-3.5 text-muted-foreground" title="Private" />
+                  <Lock className="h-3.5 w-3.5 text-muted-foreground" aria-label="Private" />
                 )}
                 <Badge variant="outline" className="text-[10px]">
                   {stepsProgress(unit)} steps

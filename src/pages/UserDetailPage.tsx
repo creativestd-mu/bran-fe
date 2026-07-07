@@ -56,13 +56,13 @@ export default function UserDetailPage() {
           rolesApi.list(),
           tasksApi.list({ userId: id, page: 1, pageSize: 20 }),
           usersApi.getSocialAccounts(id),
-          usersApi.list({ page: 1, pageSize: 200, isActive: true }),
+          usersApi.listAll(),
         ])
         setUser(userData)
         setRoles(roleData)
         setTasks(taskData.items)
         setSocialAccounts(socialData)
-        setManagerOptions(allUsers.items.filter((u) => u.id !== id))
+        setManagerOptions(allUsers.filter((u) => u.id !== id))
         setEditForm({
           name: userData.name,
           description: userData.description || "",
@@ -238,6 +238,7 @@ export default function UserDetailPage() {
                         {managerOptions.map((manager) => (
                           <SelectItem key={manager.id} value={manager.id}>
                             {manager.name}
+                            {!manager.isActive ? " (inactive)" : ""}
                           </SelectItem>
                         ))}
                       </SelectContent>

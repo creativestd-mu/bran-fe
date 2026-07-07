@@ -346,7 +346,7 @@ function NotificationActions({
     typeof (data as Partial<ResourceRequestedData> | null)?.resource?.id === "string"
 
   const resourceId = isActionable
-    ? ((data as ResourceRequestedData).resource.id as string)
+    ? (data as unknown as ResourceRequestedData).resource.id
     : null
 
   return (

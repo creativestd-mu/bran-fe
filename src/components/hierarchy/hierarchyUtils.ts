@@ -7,7 +7,7 @@ export const NODE_WIDTH = 260
 export const NODE_HEIGHT = 132
 export const DEFAULT_MEMBER_ROLE: MemberRole = "MEMBER"
 
-export interface HierarchyNodeData {
+export interface HierarchyNodeData extends Record<string, unknown> {
   memberId?: string
   user: User
   memberRole: MemberRole
@@ -220,7 +220,10 @@ export function validateHierarchyGraph(
   const warnings: string[] = []
 
   for (const edge of edges) {
-    const result = isConnectionValid({ source: edge.source, target: edge.target }, edges.filter((e) => e.id !== edge.id))
+    const result = isConnectionValid(
+      { source: edge.source, target: edge.target, sourceHandle: null, targetHandle: null },
+      edges.filter((e) => e.id !== edge.id)
+    )
     if (!result.valid) errors.push(result.reason ?? "Invalid edge found.")
   }
 

@@ -9,7 +9,7 @@ const ORG_CONTEXT_ID = "org"
 export function UserHierarchyCanvas() {
   const usersQuery = useQuery({
     queryKey: ["users-palette"],
-    queryFn: async () => (await usersApi.list({ page: 1, pageSize: 200 })).items,
+    queryFn: () => usersApi.listAll(),
   })
 
   const hierarchyQuery = useQuery({
