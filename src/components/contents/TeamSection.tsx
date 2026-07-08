@@ -110,8 +110,8 @@ export function TeamSection({ node, contentId }: Props) {
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="whitespace-nowrap">{pretty(member.role)}</Badge>
+                <div className="flex shrink-0 items-center gap-2">
+                  <Badge variant="outline" className="whitespace-nowrap shrink-0">{pretty(member.role)}</Badge>
                   <Button
                     size="icon"
                     variant="ghost"

@@ -346,10 +346,11 @@ export function ResourcesSection({ node, content }: Props) {
             const line = cost * qty
             const currency = resource.currency ?? ""
             const approvalState: ResourceApprovalState = resource.approvalState
+            const isOwnRequest = Boolean(user && resource.requestedBy && resource.requestedBy.id === user.id)
             const showReviewControls =
-              isRental && canReviewRentals && approvalState !== "APPROVED"
+              isRental && canReviewRentals && approvalState !== "APPROVED" && !isOwnRequest
             const showRejectOnly =
-              isRental && canReviewRentals && approvalState === "APPROVED"
+              isRental && canReviewRentals && approvalState === "APPROVED" && !isOwnRequest
 
             return (
               <li
@@ -384,7 +385,7 @@ export function ResourcesSection({ node, content }: Props) {
                       </div>
                     )}
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-foreground/70">
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-foreground/80">
                     {isRental && currency ? (
                       <span className="font-medium tabular-nums">
                         {qty} × {formatMoney(cost, currency)}
@@ -401,7 +402,7 @@ export function ResourcesSection({ node, content }: Props) {
                   </div>
 
                   {isRental && (
-                    <div className="mt-1.5 space-y-0.5 text-[11px] text-foreground/60">
+                    <div className="mt-1.5 space-y-0.5 text-[11px] text-muted-foreground">
                       {resource.requestedBy && (
                         <div>
                           Requested by{" "}

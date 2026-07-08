@@ -190,7 +190,10 @@ export default function ContentsPage() {
             )}
 
             <div className="ml-auto flex items-center gap-2">
-              <div className="flex h-9 items-center gap-2 rounded-md border border-border px-3">
+              <div
+                className="flex h-9 items-center gap-2 rounded-md border border-border px-3"
+                title="Show only content you created or are assigned to"
+              >
                 <Label htmlFor="mine-only" className="cursor-pointer text-xs">
                   Mine only
                 </Label>

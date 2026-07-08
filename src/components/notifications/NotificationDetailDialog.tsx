@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { validateRequiredText } from "@/lib/validation"
 import {
   CheckCircle2,
+  ClipboardList,
   Coins,
   ExternalLink,
   FileVideo,
@@ -22,6 +23,7 @@ import {
   type Notification,
   type ResourceRequestedData,
   type ResourceReviewedData,
+  type WorkAssignedNotificationData,
 } from "@/types"
 import { contentsApi } from "@/lib/api"
 import { Button } from "@/components/ui/button"
@@ -45,6 +47,16 @@ interface Props {
 
 function deepLinkFor(parsed: Record<string, unknown> | null): string | null {
   if (!parsed) return null
+  const workUnitId = typeof parsed.workUnitId === "string" ? parsed.workUnitId : null
+  if (workUnitId) return `/work?unit=${workUnitId}`
+
+  const backendLink = typeof parsed.link === "string" ? parsed.link : null
+  if (backendLink) {
+    const workMatch = backendLink.match(/\/work\/([^/?#]+)/)
+    if (workMatch?.[1]) return `/work?unit=${workMatch[1]}`
+    if (backendLink.startsWith("/work")) return backendLink
+  }
+
   // Always derive the FE path from contentId + nodeId. We intentionally do not
   // trust an arbitrary `link` field from the backend payload, because it often
   // contains the API path (e.g. /en/v1/contents/...) which doesn't match any
@@ -56,9 +68,7 @@ function deepLinkFor(parsed: Record<string, unknown> | null): string | null {
     const nodeId = toNode?.id ?? node?.id
     return nodeId ? `/contents/${contentId}?nodeId=${nodeId}` : `/contents/${contentId}`
   }
-  // Only fall back to the backend `link` if it clearly points at an FE route.
-  const link = typeof parsed.link === "string" ? parsed.link : null
-  if (link && link.startsWith("/contents/")) return link
+  if (backendLink && backendLink.startsWith("/contents/")) return backendLink
   return null
 }
 
@@ -126,6 +136,9 @@ export function NotificationDetailDialog({
     CONTENT_NODE_READY: true,
     CONTENT_RESOURCE_REQUESTED: true,
     CONTENT_RESOURCE_REVIEWED: true,
+    WORK_UNIT_ASSIGNED: true,
+    WORK_STEP_ASSIGNED: true,
+    WORK_STEP_OVERDUE: true,
   }
   const showRawBody = !HAS_STRUCTURED_BODY[notification.kind] && Boolean(notification.body)
 
@@ -190,6 +203,15 @@ function NotificationIcon({
     if (decision === "REJECTED")
       return <XCircle className="h-4 w-4 text-destructive" />
     return <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+  }
+  if (
+    notification.kind === "WORK_UNIT_ASSIGNED" ||
+    notification.kind === "WORK_STEP_ASSIGNED"
+  ) {
+    return <ClipboardList className="h-4 w-4 text-accent" />
+  }
+  if (notification.kind === "WORK_STEP_OVERDUE") {
+    return <ClipboardList className="h-4 w-4 text-destructive" />
   }
   return null
 }
@@ -313,6 +335,33 @@ function NotificationBody({
     )
   }
 
+  if (
+    notification.kind === "WORK_UNIT_ASSIGNED" ||
+    notification.kind === "WORK_STEP_ASSIGNED" ||
+    notification.kind === "WORK_STEP_OVERDUE"
+  ) {
+    const d = data as Partial<WorkAssignedNotificationData> | null
+    return (
+      <div className="space-y-3 rounded-md border border-border bg-muted/30 p-3 text-sm">
+        {d?.workUnitTitle && (
+          <Row icon={<ClipboardList className="h-3.5 w-3.5" />} label="Work unit">
+            {d.workUnitTitle}
+          </Row>
+        )}
+        {d?.stepDescription && (
+          <Row icon={<Layers className="h-3.5 w-3.5" />} label="Step">
+            {d.stepDescription}
+          </Row>
+        )}
+        {d?.assignedByUser && (
+          <Row icon={<UserIcon className="h-3.5 w-3.5" />} label="Assigned by">
+            {d.assignedByUser.name}
+          </Row>
+        )}
+      </div>
+    )
+  }
+
   return null
 }
 
@@ -348,6 +397,11 @@ function NotificationActions({
   const resourceId = isActionable
     ? (data as unknown as ResourceRequestedData).resource.id
     : null
+
+  const isWorkNotification =
+    notification.kind === "WORK_UNIT_ASSIGNED" ||
+    notification.kind === "WORK_STEP_ASSIGNED" ||
+    notification.kind === "WORK_STEP_OVERDUE"
 
   return (
     <div className="space-y-3">
@@ -403,7 +457,8 @@ function NotificationActions({
             </Button>
             {link && (
               <Button className="gap-1.5" onClick={onViewInWorkflow}>
-                <ExternalLink className="h-3.5 w-3.5" /> Open in workflow
+                <ExternalLink className="h-3.5 w-3.5" />
+                {isWorkNotification ? "Open work unit" : "Open in workflow"}
               </Button>
             )}
           </>

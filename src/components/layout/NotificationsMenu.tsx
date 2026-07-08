@@ -6,6 +6,7 @@ import {
   CheckCheck,
   CheckCircle2,
   Circle,
+  ClipboardList,
   FileVideo,
   ShieldCheck,
   XCircle,
@@ -54,6 +55,12 @@ interface KindIconProps {
 }
 
 function KindIcon({ kind, data }: KindIconProps) {
+  if (kind === "WORK_UNIT_ASSIGNED" || kind === "WORK_STEP_ASSIGNED") {
+    return <ClipboardList className="h-4 w-4 text-accent" />
+  }
+  if (kind === "WORK_STEP_OVERDUE") {
+    return <ClipboardList className="h-4 w-4 text-destructive" />
+  }
   if (kind === "CONTENT_NODE_READY") {
     return <FileVideo className="h-4 w-4 text-blue-400" />
   }
@@ -278,6 +285,17 @@ export function NotificationsMenu() {
                           {notification.kind === "CONTENT_NODE_READY" && (
                             <Badge variant="info" className="px-1.5 py-0 text-[9px] uppercase">
                               Ready
+                            </Badge>
+                          )}
+                          {(notification.kind === "WORK_UNIT_ASSIGNED" ||
+                            notification.kind === "WORK_STEP_ASSIGNED") && (
+                            <Badge variant="info" className="px-1.5 py-0 text-[9px] uppercase">
+                              Work assigned
+                            </Badge>
+                          )}
+                          {notification.kind === "WORK_STEP_OVERDUE" && (
+                            <Badge variant="destructive" className="px-1.5 py-0 text-[9px] uppercase">
+                              Overdue
                             </Badge>
                           )}
                         </div>

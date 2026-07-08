@@ -340,10 +340,12 @@ export const workApi = {
     status?: import("@/types").WorkUnitStatus
     isPrivate?: boolean
     projectId?: string | null
+    assignedToUserId?: string | null
     steps?: Array<{
       description: string
       deadline?: string | null
       done?: boolean
+      assigneeId?: string | null
     }>
   }) => api.post<import("@/types").WorkUnit>("/work", data),
   list: (params?: {
@@ -369,13 +371,22 @@ export const workApi = {
       status: import("@/types").WorkUnitStatus
       isPrivate: boolean
       projectId: string | null
+      assignedToUserId: string | null
       steps: Array<{
         description: string
         deadline?: string | null
         done?: boolean
+        assigneeId?: string | null
       }>
     }>
   ) => api.put<import("@/types").WorkUnit>(`/work/${id}`, data),
+  patchAssignments: (
+    id: string,
+    data: {
+      ownerUserId?: string | null
+      stepAssignments?: Array<{ stepId: string; assigneeId: string | null }>
+    }
+  ) => api.patch<import("@/types").WorkUnit>(`/work/${id}/assignments`, data),
   delete: (id: string) => api.delete(`/work/${id}`),
 }
 

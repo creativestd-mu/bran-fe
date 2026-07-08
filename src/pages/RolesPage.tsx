@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
 import { Plus, Shield, Users, Trash2 } from "lucide-react"
@@ -22,6 +22,8 @@ export default function RolesPage() {
   const [loading, setLoading] = useState(true)
   const [createOpen, setCreateOpen] = useState(false)
   const [createForm, setCreateForm] = useState({ name: "", description: "" })
+  const [deleteTarget, setDeleteTarget] = useState<Role | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
   const [editingRole, setEditingRole] = useState<Role | null>(null)
   const [selectedPerms, setSelectedPerms] = useState<Set<string>>(new Set())
 
@@ -57,18 +59,27 @@ export default function RolesPage() {
     }
   }
 
-  const handleDelete = async (role: Role) => {
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setDeleteLoading(true)
+    try {
+      await rolesApi.delete(deleteTarget.id)
+      toast.success("Role deleted")
+      setDeleteTarget(null)
+      load()
+    } catch {
+      toast.error("Failed to delete role")
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
+  const confirmDelete = (role: Role) => {
     if (BUILTIN_ROLES.includes(role.name)) {
       toast.error("Cannot delete built-in roles")
       return
     }
-    try {
-      await rolesApi.delete(role.id)
-      toast.success("Role deleted")
-      load()
-    } catch {
-      toast.error("Failed to delete role")
-    }
+    setDeleteTarget(role)
   }
 
   const openPermEditor = (role: Role) => {
@@ -130,7 +141,7 @@ export default function RolesPage() {
                   <CardTitle className="text-lg capitalize">{role.name.replace("_", " ")}</CardTitle>
                 </div>
                 {!BUILTIN_ROLES.includes(role.name) && (
-                  <Button variant="ghost" size="icon" onClick={() => handleDelete(role)} title="Delete role">
+                  <Button variant="ghost" size="icon" onClick={() => confirmDelete(role)} title="Delete role">
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
                 )}
@@ -159,12 +170,20 @@ export default function RolesPage() {
         ))}
       </div>
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      <Dialog
+        open={createOpen}
+        onOpenChange={(open) => {
+          setCreateOpen(open)
+          if (!open) setCreateForm({ name: "", description: "" })
+        }}
+      >
         <DialogContent>
           <DialogHeader><DialogTitle>Create New Role</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Role Name</Label>
+              <Label>
+                Role Name <span className="text-destructive">*</span>
+              </Label>
               <Input value={createForm.name} onChange={(e) => setCreateForm((p) => ({ ...p, name: e.target.value }))} placeholder="e.g. editor" />
             </div>
             <div className="space-y-2">
@@ -175,6 +194,25 @@ export default function RolesPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
             <Button onClick={handleCreate}>Create</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete role?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete the <span className="font-semibold">{deleteTarget?.name.replace("_", " ")}</span> role. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleteLoading}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleteLoading}>
+              {deleteLoading ? "Deleting..." : "Delete"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -254,7 +254,7 @@ export default function AdhocWorkPage() {
           <Button
             size="sm"
             variant="outline"
-            className="gap-1.5"
+            className="gap-1.5 text-foreground"
             onClick={clearFilters}
             disabled={filters.userId === "all" && !filters.from && !filters.to}
           >

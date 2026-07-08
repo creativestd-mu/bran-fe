@@ -122,7 +122,7 @@ export default function AIQueryPage() {
   )
 
   return (
-    <div className="flex h-full min-h-0 gap-4">
+    <div className="flex flex-1 min-h-0 gap-4">
       <Card className="hidden w-72 shrink-0 flex-col lg:flex">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
           <CardTitle className="text-sm text-accent">Query History</CardTitle>

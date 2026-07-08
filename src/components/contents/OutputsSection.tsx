@@ -325,7 +325,7 @@ export function OutputsSection({ node, content, canReview }: Props) {
           }
         }}
       >
-        <DialogContent>
+        <DialogContent className="overflow-x-hidden">
           <DialogHeader>
             <DialogTitle>Review output{reviewing ? ` v${reviewing.version}` : ""}</DialogTitle>
           </DialogHeader>

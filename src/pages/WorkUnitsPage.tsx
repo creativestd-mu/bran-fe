@@ -1,8 +1,16 @@
 import { useCallback, useEffect, useState } from "react"
+import { useSearchParams } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
 import { projectsApi, usersApi, workApi } from "@/lib/api"
-import type { AudioWorkResult, Project, User, WorkUnit, WorkUnitStatus } from "@/types"
+import type { AudioWorkResult, Project, TaggingMapping, User, WorkUnit, WorkUnitStatus } from "@/types"
 import { hasPermission, hasRole } from "@/types"
+import { AssigneeSelect } from "@/components/work/AssigneeSelect"
+import { TranscriptTagCanvas } from "@/components/work/TranscriptTagCanvas"
+import {
+  collectTaggingMappings,
+  patchPayloadForMapping,
+  taggingMappingKey,
+} from "@/components/work/transcriptTagUtils"
 import {
   firstValidationError,
   validateWorkContext,
@@ -48,9 +56,13 @@ import {
 } from "lucide-react"
 
 type StepFormRow = {
+  id?: string
   description: string
   deadline: string
   done: boolean
+  assigneeId: string | null
+  assigneeSpokenName?: string | null
+  assignee?: WorkUnit["steps"][number]["assignee"]
 }
 
 type WorkForm = {
@@ -59,10 +71,17 @@ type WorkForm = {
   status: WorkUnitStatus
   isPrivate: boolean
   projectId: string | null
+  assignedToUserId: string | null
+  assigneeSpokenName?: string | null
   steps: StepFormRow[]
 }
 
-const emptyStep = (): StepFormRow => ({ description: "", deadline: "", done: false })
+const emptyStep = (): StepFormRow => ({
+  description: "",
+  deadline: "",
+  done: false,
+  assigneeId: null,
+})
 
 const emptyForm = (): WorkForm => ({
   title: "",
@@ -70,13 +89,14 @@ const emptyForm = (): WorkForm => ({
   status: "OPEN",
   isPrivate: false,
   projectId: null,
+  assignedToUserId: null,
   steps: [],
 })
 
 function canManageUnit(unit: WorkUnit, userId: string | undefined, isManager: boolean) {
   if (!userId) return false
   if (unit.isPrivate) return unit.userId === userId
-  return unit.userId === userId || isManager
+  return unit.userId === userId || unit.createdById === userId || isManager
 }
 
 function formatDateTime(iso: string | null | undefined): string {
@@ -106,10 +126,16 @@ function unitToForm(unit: WorkUnit): WorkForm {
     status: unit.status,
     isPrivate: unit.isPrivate,
     projectId: unit.projectId ?? null,
+    assignedToUserId: unit.userId,
+    assigneeSpokenName: unit.assigneeSpokenName,
     steps: unit.steps.map((s) => ({
+      id: s.id,
       description: s.description,
       deadline: fromIsoDeadline(s.deadline),
       done: s.done,
+      assigneeId: s.assigneeId,
+      assigneeSpokenName: s.assigneeSpokenName,
+      assignee: s.assignee,
     })),
   }
 }
@@ -121,10 +147,12 @@ function formToPayload(form: WorkForm) {
     status: form.status,
     isPrivate: form.isPrivate,
     projectId: form.projectId ?? null,
+    assignedToUserId: form.assignedToUserId,
     steps: form.steps.map((s) => ({
       description: s.description.trim(),
       deadline: toIsoDeadline(s.deadline),
       done: s.done,
+      assigneeId: s.assigneeId,
     })),
   }
 }
@@ -144,6 +172,7 @@ function stepsProgress(unit: WorkUnit) {
 
 export default function WorkUnitsPage() {
   const { user } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
   const isManager = hasRole(user, "admin", "manager", "superadmin")
   const canCreate = hasPermission(user, "create_tasks")
 
@@ -159,6 +188,7 @@ export default function WorkUnitsPage() {
   })
 
   const [users, setUsers] = useState<User[]>([])
+  const [assigneeUsers, setAssigneeUsers] = useState<User[]>([])
   const [filters, setFilters] = useState({ userId: "all", from: "", to: "" })
 
   const [createOpen, setCreateOpen] = useState(false)
@@ -177,8 +207,10 @@ export default function WorkUnitsPage() {
   const [regenerating, setRegenerating] = useState(false)
   const [audioResult, setAudioResult] = useState<AudioWorkResult | null>(null)
   const [editedTranscript, setEditedTranscript] = useState("")
+  const [transcriptEditing, setTranscriptEditing] = useState(false)
   const [audioProjectOverrides, setAudioProjectOverrides] = useState<Record<string, string | null>>({})
   const [savingOverrides, setSavingOverrides] = useState(false)
+  const [assigneeSavingKey, setAssigneeSavingKey] = useState<string | null>(null)
   const recorder = useAudioRecorder()
 
   const [projects, setProjects] = useState<Project[]>([])
@@ -193,6 +225,14 @@ export default function WorkUnitsPage() {
       .then((res) => setUsers(res.items))
       .catch(() => {})
   }, [isManager])
+
+  useEffect(() => {
+    if (!canCreate && !isManager) return
+    usersApi
+      .listAll({ isActive: true })
+      .then(setAssigneeUsers)
+      .catch(() => {})
+  }, [canCreate, isManager])
 
   const fetchUnits = useCallback(
     async (page = 1, status: WorkUnitStatus = tab) => {
@@ -229,6 +269,60 @@ export default function WorkUnitsPage() {
   const openEdit = (unit: WorkUnit) => {
     setEditing(unit)
     setEditForm(unitToForm(unit))
+    if (unit.audioRecordingId || (unit.taggingMappings?.length ?? 0) > 0) {
+      workApi
+        .getById(unit.id)
+        .then((full) => {
+          setEditing(full)
+          setEditForm(unitToForm(full))
+        })
+        .catch(() => {})
+    }
+  }
+
+  useEffect(() => {
+    const unitId = searchParams.get("unit")
+    if (!unitId || loading || units.length === 0) return
+    const unit = units.find((item) => item.id === unitId)
+    if (unit) {
+      openEdit(unit)
+      setSearchParams({}, { replace: true })
+    }
+  }, [loading, searchParams, setSearchParams, units])
+
+  const handleMappingAssignment = async (
+    unitId: string,
+    mapping: TaggingMapping,
+    assigneeId: string | null
+  ) => {
+    const savingKey = taggingMappingKey(mapping)
+    setAssigneeSavingKey(savingKey)
+    try {
+      const updated = await workApi.patchAssignments(unitId, patchPayloadForMapping(mapping, assigneeId))
+      setUnits((prev) => prev.map((item) => (item.id === updated.id ? updated : item)))
+      if (editing?.id === updated.id) {
+        setEditing(updated)
+        setEditForm(unitToForm(updated))
+      }
+      if (audioResult) {
+        setAudioResult((prev) => {
+          if (!prev) return prev
+          const workUnits = prev.workUnits.map((item) => (item.id === updated.id ? updated : item))
+          return {
+            ...prev,
+            transcript: updated.transcript ?? prev.transcript,
+            taggingMappings: collectTaggingMappings(workUnits, prev.taggingMappings),
+            workUnits,
+          }
+        })
+        if (updated.transcript) setEditedTranscript(updated.transcript)
+      }
+      toast.success("Assignee updated")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update assignee")
+    } finally {
+      setAssigneeSavingKey(null)
+    }
   }
 
   const handleCreate = async () => {
@@ -277,6 +371,7 @@ export default function WorkUnitsPage() {
       description: s.description,
       deadline: s.deadline,
       done: i === stepIndex ? !s.done : s.done,
+      assigneeId: s.assigneeId,
     }))
     try {
       const updated = await workApi.update(unit.id, { steps })
@@ -315,6 +410,7 @@ export default function WorkUnitsPage() {
     setRecordOpen(false)
     setAudioResult(null)
     setEditedTranscript("")
+    setTranscriptEditing(false)
     setAudioProjectOverrides({})
     recorder.reset()
   }
@@ -322,11 +418,12 @@ export default function WorkUnitsPage() {
   const initAudioResult = (result: AudioWorkResult) => {
     setAudioResult(result)
     setEditedTranscript(result.transcript)
-    const initialOverrides: Record<string, string | null> = {}
+    setTranscriptEditing(false)
+    const initialProjects: Record<string, string | null> = {}
     for (const unit of result.workUnits) {
-      initialOverrides[unit.id] = unit.projectId ?? null
+      initialProjects[unit.id] = unit.projectId ?? null
     }
-    setAudioProjectOverrides(initialOverrides)
+    setAudioProjectOverrides(initialProjects)
   }
 
   const handleUploadRecording = async () => {
@@ -399,7 +496,7 @@ export default function WorkUnitsPage() {
               size="sm"
               className="gap-1.5"
               onClick={() => {
-                setCreateForm(emptyForm())
+                setCreateForm({ ...emptyForm(), assignedToUserId: user?.id ?? null })
                 setCreateOpen(true)
               }}
             >
@@ -525,7 +622,14 @@ export default function WorkUnitsPage() {
           <DialogHeader>
             <DialogTitle>New work unit</DialogTitle>
           </DialogHeader>
-          <WorkUnitForm form={createForm} onChange={setCreateForm} projects={projects} />
+          <WorkUnitForm
+            form={createForm}
+            onChange={setCreateForm}
+            projects={projects}
+            assigneeUsers={assigneeUsers}
+            currentUserId={user?.id}
+            showOwnerPicker
+          />
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={creating}>
               Cancel
@@ -543,7 +647,33 @@ export default function WorkUnitsPage() {
           <DialogHeader>
             <DialogTitle>Edit work unit</DialogTitle>
           </DialogHeader>
-          <WorkUnitForm form={editForm} onChange={setEditForm} projects={projects} />
+          <WorkUnitForm
+            form={editForm}
+            onChange={setEditForm}
+            projects={projects}
+            assigneeUsers={assigneeUsers}
+            currentUserId={user?.id}
+            showOwnerPicker
+            editingUnit={editing ?? undefined}
+          />
+          {editing && (editing.transcript || editing.taggingMappings?.length) ? (
+            <div className="space-y-2 border-t border-border/60 pt-4">
+              <Label className="text-xs text-muted-foreground">
+                Dictation — click a #tag to reassign
+              </Label>
+              <TranscriptTagCanvas
+                transcript={editing.transcript ?? ""}
+                mappings={collectTaggingMappings([editing], editing.taggingMappings)}
+                users={assigneeUsers}
+                currentUserId={user?.id}
+                savingMappingKey={assigneeSavingKey}
+                disabled={!canManageUnit(editing, user?.id, isManager) || editing.status !== "OPEN"}
+                onAssignmentChange={(mapping, assigneeId) =>
+                  handleMappingAssignment(editing.id, mapping, assigneeId)
+                }
+              />
+            </div>
+          ) : null}
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditing(null)} disabled={saving}>
               Cancel
@@ -638,58 +768,84 @@ export default function WorkUnitsPage() {
               </div>
             </div>
           ) : (
-            <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 md:grid-cols-2 md:min-h-[420px]">
-              <div className="flex min-h-0 flex-col gap-2">
-                <Label className="text-xs text-muted-foreground">Transcript</Label>
-                <div className="scrollbar-invisible min-h-0 flex-1 overflow-y-auto rounded-lg border border-border/60 bg-muted/20">
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <Label className="text-xs text-muted-foreground">Transcript</Label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs"
+                    onClick={() => setTranscriptEditing((value) => !value)}
+                  >
+                    {transcriptEditing ? "Show tags" : "Edit transcript"}
+                  </Button>
+                </div>
+                {transcriptEditing ? (
                   <Textarea
                     value={editedTranscript}
                     onChange={(e) => setEditedTranscript(e.target.value)}
-                    rows={16}
-                    className="min-h-[360px] resize-none border-0 bg-transparent shadow-none focus-visible:ring-0"
+                    rows={8}
+                    className="min-h-[180px] resize-y"
                     placeholder="Edit transcript…"
                   />
-                </div>
+                ) : (
+                  <TranscriptTagCanvas
+                    transcript={audioResult.transcript}
+                    mappings={collectTaggingMappings(audioResult.workUnits, audioResult.taggingMappings)}
+                    users={assigneeUsers}
+                    currentUserId={user?.id}
+                    savingMappingKey={assigneeSavingKey}
+                    onAssignmentChange={(mapping, assigneeId) =>
+                      handleMappingAssignment(mapping.workUnitId, mapping, assigneeId)
+                    }
+                  />
+                )}
               </div>
 
-              <div className="flex min-h-0 flex-col gap-2">
+              <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">
                   Work units ({audioResult.workUnits.length})
                 </Label>
-                <div className="scrollbar-invisible min-h-0 flex-1 space-y-2 overflow-y-auto rounded-lg border border-border/60 bg-card/40 p-2">
+                <div className="space-y-2">
                   {audioResult.workUnits.length === 0 ? (
-                    <p className="p-4 text-center text-sm text-muted-foreground">
+                    <p className="rounded-lg border border-border/60 p-4 text-center text-sm text-muted-foreground">
                       No work units yet. Save the transcript to regenerate.
                     </p>
                   ) : (
                     audioResult.workUnits.map((unit) => (
                       <div
                         key={unit.id}
-                        className="space-y-1.5 overflow-hidden rounded-lg border border-border/60 bg-background/60 p-3"
+                        className="space-y-2 rounded-lg border border-border/60 bg-background/60 p-3"
                       >
                         <div className="flex min-w-0 items-center gap-2">
                           <p className="min-w-0 break-words text-sm font-medium">{unit.title}</p>
                           {unit.isPrivate && <Lock className="h-3 w-3 shrink-0 text-muted-foreground" />}
+                          {unit.createdBy && unit.createdBy.id !== unit.userId && (
+                            <Badge variant="secondary" className="text-[10px]">
+                              via {unit.createdBy.name}
+                            </Badge>
+                          )}
                         </div>
-                        <p className="break-words text-xs text-muted-foreground">{unit.context}</p>
-                        {unit.steps.length > 0 && (
-                          <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
-                            {unit.steps.map((s) => (
-                              <li key={s.id} className="flex min-w-0 items-start gap-1.5">
-                                <span className="shrink-0 text-muted-foreground/60">•</span>
-                                <span className="min-w-0 flex-1 break-all">
-                                  {s.description}
-                                  {s.deadline && (
+                        {unit.steps.length > 0 ? (
+                          <ul className="space-y-1 text-xs text-muted-foreground">
+                            {unit.steps.map((step) => (
+                              <li key={step.id} className="flex min-w-0 gap-1.5">
+                                <span className="shrink-0">•</span>
+                                <span className="min-w-0 break-words">
+                                  {step.description}
+                                  {step.deadline ? (
                                     <span className="ml-1 opacity-80">
-                                      (due {formatDateTime(s.deadline)})
+                                      (due {formatDateTime(step.deadline)})
                                     </span>
-                                  )}
+                                  ) : null}
                                 </span>
                               </li>
                             ))}
                           </ul>
-                        )}
-                        <div className="flex items-center gap-1.5 pt-0.5">
+                        ) : null}
+                        <div className="flex items-center gap-1.5">
                           <FolderKanban className="h-3 w-3 shrink-0 text-muted-foreground" />
                           <Select
                             value={audioProjectOverrides[unit.id] ?? "none"}
@@ -700,7 +856,7 @@ export default function WorkUnitsPage() {
                               }))
                             }
                           >
-                            <SelectTrigger className="h-6 gap-1 border-0 bg-transparent px-1 text-xs text-muted-foreground shadow-none hover:bg-muted/40 focus:ring-0">
+                            <SelectTrigger className="h-7 max-w-[200px] gap-1 border-0 bg-transparent px-1 text-xs text-muted-foreground shadow-none hover:bg-muted/40 focus:ring-0">
                               <SelectValue placeholder="No project" />
                             </SelectTrigger>
                             <SelectContent>
@@ -729,6 +885,7 @@ export default function WorkUnitsPage() {
                 disabled={regenerating || editedTranscript.trim() === audioResult.transcript.trim()}
                 onClick={() => void handleRegenerateFromTranscript()}
                 className="gap-1.5"
+                title="Save the edited transcript and re-generate work units from it"
               >
                 {regenerating && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 Save & regenerate
@@ -738,25 +895,21 @@ export default function WorkUnitsPage() {
               variant="outline"
               disabled={savingOverrides}
               onClick={async () => {
-                if (!audioResult || Object.keys(audioProjectOverrides).length === 0) {
+                if (!audioResult) {
                   closeRecordDialog()
                   return
                 }
                 setSavingOverrides(true)
                 try {
-                  const changes = audioResult.workUnits.filter(
-                    (u) => audioProjectOverrides[u.id] !== (u.projectId ?? null)
-                  )
-                  if (changes.length > 0) {
-                    await Promise.all(
-                      changes.map((u) =>
-                        workApi.update(u.id, { projectId: audioProjectOverrides[u.id] ?? null })
-                      )
-                    )
-                    fetchUnits(1, tab)
+                  for (const unit of audioResult.workUnits) {
+                    const projectId = audioProjectOverrides[unit.id] ?? unit.projectId ?? null
+                    if (projectId !== (unit.projectId ?? null)) {
+                      await workApi.update(unit.id, { projectId })
+                    }
                   }
+                  fetchUnits(1, tab)
                 } catch {
-                  toast.error("Failed to save project assignments")
+                  toast.error("Failed to save work unit updates")
                 } finally {
                   setSavingOverrides(false)
                 }
@@ -838,7 +991,10 @@ function UnitList({
               </div>
               <p className="break-words text-sm text-muted-foreground line-clamp-2">{unit.context}</p>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                {isManager && <span>{unit.user.name}</span>}
+                <span>Owner: {unit.user.name}</span>
+                {unit.createdBy && unit.createdBy.id !== unit.userId && (
+                  <span>via {unit.createdBy.name}</span>
+                )}
                 {tab === "OPEN" && unit.nextDueAt && (
                   <span>Next due {formatDateTime(unit.nextDueAt)}</span>
                 )}
@@ -869,29 +1025,34 @@ function UnitList({
           </div>
 
           {unit.steps.length > 0 && (
-            <ul className="space-y-1.5 pl-1">
+            <ul className="space-y-3 pl-1">
               {unit.steps.map((step, i) => (
-                <li key={step.id} className="flex min-w-0 items-start gap-2 text-sm">
-                  {canManage(unit, userId, isManager) ? (
-                    <input
-                      type="checkbox"
-                      checked={step.done}
-                      onChange={() => onToggleStep(unit, i)}
-                      className="mt-1 h-4 w-4 shrink-0 rounded border-border"
-                    />
-                  ) : (
-                    <span className="mt-1 h-4 w-4 shrink-0" />
-                  )}
-                  <span
-                    className={`min-w-0 flex-1 break-all ${step.done ? "line-through text-muted-foreground" : ""}`}
-                  >
-                    {step.description}
-                    {step.deadline && (
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        due {formatDateTime(step.deadline)}
-                      </span>
+                <li key={step.id} className="space-y-2">
+                  <div className="flex min-w-0 items-start gap-2 text-sm">
+                    {canManage(unit, userId, isManager) ? (
+                      <input
+                        type="checkbox"
+                        checked={step.done}
+                        onChange={() => onToggleStep(unit, i)}
+                        className="mt-1 h-4 w-4 shrink-0 rounded border-border"
+                      />
+                    ) : (
+                      <span className="mt-1 h-4 w-4 shrink-0" />
                     )}
-                  </span>
+                    <span
+                      className={`min-w-0 flex-1 break-all ${step.done ? "line-through text-muted-foreground" : ""}`}
+                    >
+                      {step.description}
+                      {step.assignee ? (
+                        <span className="ml-2 text-xs text-muted-foreground">· {step.assignee.name}</span>
+                      ) : null}
+                      {step.deadline && (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          due {formatDateTime(step.deadline)}
+                        </span>
+                      )}
+                    </span>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -906,10 +1067,18 @@ function WorkUnitForm({
   form,
   onChange,
   projects,
+  assigneeUsers,
+  currentUserId,
+  showOwnerPicker = false,
+  editingUnit,
 }: {
   form: WorkForm
   onChange: React.Dispatch<React.SetStateAction<WorkForm>>
   projects: Project[]
+  assigneeUsers: User[]
+  currentUserId?: string
+  showOwnerPicker?: boolean
+  editingUnit?: WorkUnit
 }) {
   const updateStep = (index: number, patch: Partial<StepFormRow>) => {
     onChange((prev) => ({
@@ -950,6 +1119,22 @@ function WorkUnitForm({
           onChange={(e) => onChange((p) => ({ ...p, context: e.target.value }))}
         />
       </div>
+      {showOwnerPicker && (
+        <div className="space-y-1.5">
+          <Label>Owner</Label>
+          {editingUnit?.createdBy && editingUnit.createdBy.id !== editingUnit.userId && (
+            <p className="text-xs text-muted-foreground">Assigned by {editingUnit.createdBy.name}</p>
+          )}
+          <AssigneeSelect
+            users={assigneeUsers}
+            currentUserId={currentUserId}
+            value={form.assignedToUserId}
+            onChange={(next) => onChange((prev) => ({ ...prev, assignedToUserId: next ?? currentUserId ?? null }))}
+            includeUnassigned={false}
+            placeholder="Select owner"
+          />
+        </div>
+      )}
       <div className="space-y-1.5">
         <Label>Project</Label>
         <Select
@@ -1031,6 +1216,16 @@ function WorkUnitForm({
                       type="datetime-local"
                       value={step.deadline}
                       onChange={(e) => updateStep(i, { deadline: e.target.value })}
+                      className="max-w-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Step assignee</Label>
+                    <AssigneeSelect
+                      users={assigneeUsers}
+                      currentUserId={currentUserId}
+                      value={step.assigneeId}
+                      onChange={(next) => updateStep(i, { assigneeId: next })}
                       className="max-w-xs"
                     />
                   </div>

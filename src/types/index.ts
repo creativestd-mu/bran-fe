@@ -123,15 +123,48 @@ export type WorkUnitStatus = "OPEN" | "CLOSED"
 export interface WorkStep {
   id: string
   workUnitId: string
+  assigneeId: string | null
+  assigneeSpokenName: string | null
+  sourceExcerpt: string | null
   description: string
   deadline: string | null
   done: boolean
   createdAt: string
+  assignee: WorkUserRef | null
+}
+
+export type TaggingMappingTarget = "work_unit_owner" | "step"
+
+export interface TaggingMapping {
+  target: TaggingMappingTarget
+  workUnitId: string
+  stepId: string | null
+  sourceExcerpt: string
+  spokenName: string | null
+  assigneeId: string | null
+  assignee: WorkUserRef | null
+}
+
+export interface WorkAudioRecording {
+  id: string
+  transcript: string
+  originalFilename?: string | null
+  mimeType?: string | null
+  fileSizeBytes?: number | null
+  status?: string | null
+  createdAt: string
+}
+
+export interface WorkUserRef {
+  id: string
+  name: string
+  email: string
 }
 
 export interface WorkUnit {
   id: string
   userId: string
+  createdById: string | null
   title: string
   context: string
   status: WorkUnitStatus
@@ -139,12 +172,18 @@ export interface WorkUnit {
   projectId: string | null
   project: { id: string; name: string; status: string } | null
   audioRecordingId: string | null
+  assigneeSpokenName: string | null
+  sourceExcerpt: string | null
+  transcript?: string | null
+  taggingMappings?: TaggingMapping[]
+  audioRecording?: WorkAudioRecording | null
   closedAt: string | null
   nextDueAt: string | null
   firstDueAt: string | null
   createdAt: string
   updatedAt: string
-  user: { id: string; name: string; email: string }
+  user: WorkUserRef
+  createdBy: WorkUserRef | null
   steps: WorkStep[]
 }
 
@@ -153,11 +192,14 @@ export interface AudioWorkResult {
   audioRecording: {
     id: string
     userId: string
-    filePath: string
     source: string
+    transcript: string
+    originalFilename?: string | null
+    languageCode: string | null
     createdAt: string
   }
   workUnits: WorkUnit[]
+  taggingMappings?: TaggingMapping[]
 }
 
 export interface DeadlineStep {
@@ -546,6 +588,9 @@ export type NotificationKind =
   | "CONTENT_NODE_READY"
   | "CONTENT_RESOURCE_REQUESTED"
   | "CONTENT_RESOURCE_REVIEWED"
+  | "WORK_UNIT_ASSIGNED"
+  | "WORK_STEP_ASSIGNED"
+  | "WORK_STEP_OVERDUE"
   | (string & {})
 
 export interface Notification {
@@ -629,6 +674,14 @@ export interface NodeReadyData {
     reviewedBy: { id: string; name: string; email: string } | null
     submittedBy: { id: string; name: string; email: string } | null
   }
+  link?: string
+}
+
+export interface WorkAssignedNotificationData {
+  workUnitId: string
+  workUnitTitle?: string
+  stepDescription?: string
+  assignedByUser?: { id: string; name: string }
   link?: string
 }
 
