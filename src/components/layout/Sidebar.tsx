@@ -21,6 +21,7 @@ import {
   Wrench,
   Lightbulb,
   ClipboardList,
+  Clock,
   Mic,
   Compass,
   Target,
@@ -39,7 +40,7 @@ interface NavItem {
   label: string
   path: string
   icon: React.ReactNode
-  roles?: Array<"admin" | "manager" | "content_creator">
+  roles?: Array<"admin" | "manager" | "content_creator" | "chief_of_staff" | "superadmin">
   permissions?: string[]
 }
 
@@ -49,6 +50,7 @@ const navItems: NavItem[] = [
   { label: "Roles", path: "/roles", icon: <Shield className="h-4 w-4" />, roles: ["admin"] },
   { label: "Tasks", path: "/tasks", icon: <CheckSquare className="h-4 w-4" /> },
   { label: "Adhoc Work", path: "/adhoc-work", icon: <ClipboardList className="h-4 w-4" /> },
+  { label: "Attendance", path: "/attendance", icon: <Clock className="h-4 w-4" />, roles: ["chief_of_staff"] },
   { label: "Work Units", path: "/work", icon: <Mic className="h-4 w-4" /> },
   { label: "Nodes", path: "/contents", icon: <FileVideo className="h-4 w-4" /> },
   { label: "Inventory", path: "/inventory", icon: <Package className="h-4 w-4" /> },

@@ -1,7 +1,6 @@
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -53,7 +52,7 @@ export function TopBar({ onMenuClick, onSearchOpen }: TopBarProps) {
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/45 bg-transparent px-3 py-3 backdrop-blur-xl sm:px-4 lg:px-6">
-      <div className="flex h-14 items-center gap-2 rounded-2xl border border-border/60 bg-card/80 px-2 shadow-lg shadow-black/5 backdrop-blur-xl sm:gap-3 sm:px-3">
+      <div className="flex min-h-14 items-center gap-2 rounded-2xl border border-border/60 bg-card/80 px-2 py-1 shadow-lg shadow-black/5 backdrop-blur-xl sm:gap-3 sm:px-3">
         <Button
           variant="ghost"
           size="icon"
@@ -127,17 +126,17 @@ export function TopBar({ onMenuClick, onSearchOpen }: TopBarProps) {
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              className="flex items-center gap-2 rounded-full border border-border/70 bg-card/80 px-2 text-foreground shadow-sm hover:bg-muted"
+              className="flex h-auto items-center gap-2.5 rounded-full border border-border/70 bg-card/80 px-2.5 py-2 text-foreground shadow-sm hover:bg-muted"
             >
               <Avatar className="h-8 w-8 border border-border">
                 <AvatarImage src={user?.avatarUrl ?? undefined} alt={user?.name ?? ""} />
                 <AvatarFallback className="bg-primary text-xs font-bold text-primary-foreground">{initials}</AvatarFallback>
               </Avatar>
-              <div className="hidden items-start gap-1 md:flex md:flex-col">
-                <span className="text-sm font-medium leading-none">{user?.name}</span>
-                <Badge variant="outline" className="text-[10px] capitalize">
+              <div className="hidden min-w-0 items-start gap-1.5 md:flex md:flex-col">
+                <span className="truncate text-sm font-medium leading-none">{user?.name}</span>
+                <span className="inline-flex items-center rounded-full border border-border/70 bg-card/55 px-2.5 py-1 text-[10px] capitalize leading-none text-muted-foreground">
                   {user?.role.name.replace("_", " ")}
-                </Badge>
+                </span>
               </div>
             </Button>
           </DropdownMenuTrigger>

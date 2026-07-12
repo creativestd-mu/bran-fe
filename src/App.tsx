@@ -30,6 +30,7 @@ import WorkUnitsPage from "@/pages/WorkUnitsPage"
 import VisionsPage from "@/pages/VisionsPage"
 import KPIsPage from "@/pages/KPIsPage"
 import InventoryPage from "@/pages/InventoryPage"
+import AttendancePage from "@/pages/AttendancePage"
 
 function App() {
   const { user, loading } = useAuth()
@@ -90,6 +91,14 @@ function App() {
         />
         <Route path="/tasks" element={<TasksPage />} />
         <Route path="/adhoc-work" element={<AdhocWorkPage />} />
+        <Route
+          path="/attendance"
+          element={
+            <ProtectedRoute roles={["chief_of_staff"]}>
+              <AttendancePage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/work" element={<WorkUnitsPage />} />
         <Route path="/visions" element={<VisionsPage />} />
         <Route path="/kpis" element={<KPIsPage />} />

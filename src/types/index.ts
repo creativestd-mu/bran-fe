@@ -827,3 +827,83 @@ export interface ResourceReviewedData {
   reviewedBy: { id: string; name: string; email: string } | null
   link?: string
 }
+
+// ---------- Attendance / ETA tracker ----------
+
+export type EtaStatus = "submitted" | "missing"
+export type EtaRecordType = "office" | "wfh" | "leave" | "comp_off" | null
+export type EtaBadge =
+  | "on_time"
+  | "late_submission"
+  | "late_arrival"
+  | "wfh"
+  | "leave"
+  | "comp_off"
+  | "missing"
+  | "submitted"
+export type EtaPod = "default" | "production"
+
+export interface EtaSummary {
+  total: number
+  submitted: number
+  missing: number
+  wfh: number
+  leave: number
+  compOff: number
+  office: number
+}
+
+export interface EtaEntry {
+  id: number
+  slackUserId: string
+  userEmail: string
+  userName: string
+  entryDate: string
+  etaText: string | null
+  etaMinutes: number | null
+  status: EtaStatus
+  recordType: EtaRecordType
+  submittedAt: string | null
+  submittedOnTime: boolean | null
+  isLateArrival: boolean | null
+  rawMessage: string | null
+  slackMessageTs: string | null
+  reminderSentAt: string | null
+  createdAt: string
+  updatedAt: string
+  badge: EtaBadge
+}
+
+export interface EtaListData {
+  date: string
+  summary: EtaSummary
+  entries: EtaEntry[]
+}
+
+export interface EtaCheckResult {
+  date: string
+  weekend: boolean
+  membersSynced: number
+  history: { processed: number; recorded: number; errors: string[] }
+  missingCreated: number
+  reminders: { sent: number; skipped: number; errors: string[] }
+}
+
+export interface EtaRemindResult {
+  sent: number
+  skipped: number
+  errors: string[]
+}
+
+export interface EtaMember {
+  slackUserId: string
+  name: string
+  email: string
+  realName: string
+  pod: EtaPod
+  syncedAt: string
+}
+
+export function canManageEta(user: User | null): boolean {
+  return hasRole(user, "chief_of_staff")
+}

@@ -38,10 +38,6 @@ import { NodeDetailDialog } from "@/components/contents/NodeDetailDialog"
 import { AddNodeDialog } from "@/components/contents/AddNodeDialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import {
-  Dialog,
-  DialogContent,
-} from "@/components/ui/dialog"
 
 interface Props {
   content: Content
@@ -300,16 +296,19 @@ function ContentCanvasInner({ content, canReview, initialOpenNodeId }: Props) {
     }
   }, [fitViewOptions])
 
-  // After exiting fullscreen, the dialog close animation finishes (~200ms) before
-  // the main canvas container becomes fully visible. Trigger a delayed fitView so
-  // nodes are never left tiny or off-screen when returning from fullscreen.
+  // Lock body scroll and handle Escape key when fullscreen.
   useEffect(() => {
-    if (isFullscreen) return
-    const timer = window.setTimeout(() => {
-      flowRef.current?.fitView({ ...fitViewOptions, duration: 300 })
-    }, 250)
-    return () => window.clearTimeout(timer)
-  }, [isFullscreen, fitViewOptions])
+    if (!isFullscreen) return
+    document.body.style.overflow = "hidden"
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { e.preventDefault(); setIsFullscreen(false) }
+    }
+    window.addEventListener("keydown", handler)
+    return () => {
+      document.body.style.overflow = ""
+      window.removeEventListener("keydown", handler)
+    }
+  }, [isFullscreen])
 
   const toggleFullscreen = useCallback(() => setIsFullscreen((v) => !v), [])
 
@@ -371,50 +370,46 @@ function ContentCanvasInner({ content, canReview, initialOpenNodeId }: Props) {
     </>
   )
 
-  return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2.5">
-        <Button size="sm" variant="outline" className="gap-1.5" onClick={autoLayout}>
-          <Sparkles className="h-3.5 w-3.5" /> Auto layout
+  const toolbar = (
+    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2.5">
+      <Button size="sm" variant="outline" className="gap-1.5" onClick={autoLayout}>
+        <Sparkles className="h-3.5 w-3.5" /> Auto layout
+      </Button>
+      <span className="text-xs text-muted-foreground">
+        Click any node to open its details. Drag to rearrange.
+      </span>
+      <div className="ml-auto flex items-center gap-2">
+        <Button size="sm" className="gap-1.5" onClick={() => setAddOpen(true)}>
+          <Plus className="h-3.5 w-3.5" /> Add node
         </Button>
-        <span className="text-xs text-muted-foreground">
-          Click any node to open its details. Drag to rearrange.
-        </span>
-        <div className="ml-auto flex items-center gap-2">
-          <Button size="sm" className="gap-1.5" onClick={() => setAddOpen(true)}>
-            <Plus className="h-3.5 w-3.5" /> Add node
-          </Button>
+      </div>
+    </div>
+  )
+
+  return (
+    <>
+      {/* Fullscreen backdrop — sits below the canvas container */}
+      {isFullscreen && (
+        <div
+          className="fixed inset-0 z-40 bg-background/90 backdrop-blur-sm"
+          onClick={toggleFullscreen}
+        />
+      )}
+
+      <div className={isFullscreen ? "fixed inset-0 z-50 flex flex-col gap-3 p-4" : "space-y-3"}>
+        {toolbar}
+
+        <div
+          ref={containerRef}
+          className={
+            isFullscreen
+              ? "relative min-h-0 flex-1 overflow-hidden rounded-lg border border-border bg-background"
+              : "relative h-[50vh] min-h-[280px] overflow-hidden rounded-lg border border-border bg-background sm:h-[60vh] lg:h-[70vh]"
+          }
+        >
+          {flowCanvas}
         </div>
       </div>
-
-      <div
-        ref={containerRef}
-        className="relative h-[50vh] min-h-[280px] overflow-hidden rounded-lg border border-border bg-background sm:h-[60vh] lg:h-[70vh]"
-      >
-        {flowCanvas}
-      </div>
-
-      {/* Fullscreen modal — appears as a proper dialog layer above page content */}
-      <Dialog open={isFullscreen} onOpenChange={(open) => { if (!open) setIsFullscreen(false) }}>
-        <DialogContent className="flex h-[90vh] max-w-[95vw] flex-col gap-3 p-4 [&>button]:hidden">
-          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2.5">
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={autoLayout}>
-              <Sparkles className="h-3.5 w-3.5" /> Auto layout
-            </Button>
-            <span className="text-xs text-muted-foreground">
-              Click any node to open its details. Drag to rearrange.
-            </span>
-            <div className="ml-auto flex items-center gap-2">
-              <Button size="sm" className="gap-1.5" onClick={() => setAddOpen(true)}>
-                <Plus className="h-3.5 w-3.5" /> Add node
-              </Button>
-            </div>
-          </div>
-          <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg border border-border bg-background">
-            {flowCanvas}
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <AddNodeDialog
         open={addOpen}
@@ -435,7 +430,7 @@ function ContentCanvasInner({ content, canReview, initialOpenNodeId }: Props) {
           canReview={canReview}
         />
       )}
-    </div>
+    </>
   )
 }
 

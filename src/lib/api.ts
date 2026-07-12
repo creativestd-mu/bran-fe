@@ -704,3 +704,19 @@ export const ideationApi = {
       params as Record<string, unknown>
     ),
 }
+
+/** Attendance / ETA tracker — /en/v1/attendance/* ≡ /api/eta/* */
+export const etaApi = {
+  list: (params?: { date?: string }) =>
+    api.get<import("@/types").EtaListData>("/attendance", params as Record<string, unknown>),
+  check: (data?: { date?: string; sendReminders?: boolean }) =>
+    api.post<import("@/types").EtaCheckResult>("/attendance/check", data ?? {}),
+  remind: (data?: { date?: string }) =>
+    api.post<import("@/types").EtaRemindResult>("/attendance/remind", data ?? {}),
+  listMembers: () => api.get<import("@/types").EtaMember[]>("/attendance/members"),
+  updateMemberPod: (slackUserId: string, pod: import("@/types").EtaPod) =>
+    api.patch<{ slackUserId: string; pod: import("@/types").EtaPod }>(
+      `/attendance/members/${encodeURIComponent(slackUserId)}/pod`,
+      { pod }
+    ),
+}

@@ -20,6 +20,7 @@ import {
 import { formatDuration, useAudioRecorder } from "@/hooks/useAudioRecorder"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { DateInput } from "@/components/ui/date-input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
@@ -469,7 +470,7 @@ export default function WorkUnitsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="w-full space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="font-brand text-2xl tracking-wide text-accent">Work Units</h1>
@@ -530,18 +531,14 @@ export default function WorkUnitsPage() {
           </div>
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">From</Label>
-            <Input
-              type="date"
-              className="h-9 w-[140px]"
+            <DateInput
               value={filters.from}
               onChange={(e) => setFilters((p) => ({ ...p, from: e.target.value }))}
             />
           </div>
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">To</Label>
-            <Input
-              type="date"
-              className="h-9 w-[140px]"
+            <DateInput
               value={filters.to}
               onChange={(e) => setFilters((p) => ({ ...p, to: e.target.value }))}
             />

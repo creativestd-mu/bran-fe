@@ -261,10 +261,41 @@ body {
   font-size: 0.875em;
 }
 
+/* Keep the native calendar icon centered and visible inside date inputs */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  display: inline-flex;
+  align-items: center;
+  line-height: normal;
+}
+
+input[type="date"]::-webkit-datetime-edit,
+input[type="time"]::-webkit-datetime-edit,
+input[type="datetime-local"]::-webkit-datetime-edit {
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 1;
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  padding: 0;
+  align-self: center;
+  flex-shrink: 0;
+}
+
 .dark input[type="datetime-local"]::-webkit-calendar-picker-indicator,
 .dark input[type="date"]::-webkit-calendar-picker-indicator,
 .dark input[type="time"]::-webkit-calendar-picker-indicator {
-  filter: invert(0.7) sepia(1) saturate(3) hue-rotate(10deg);
+  /* Lighten the default dark glyph so it reads clearly on dark inputs */
+  filter: invert(1) brightness(1.15);
 }
 
 /* OverlayScrollbars takes over the document scrollbar (see

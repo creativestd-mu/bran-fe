@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react"
+import { createPortal } from "react-dom"
 import { toPng } from "html-to-image"
 import {
   addEdge,
@@ -505,20 +506,39 @@ function HierarchyCanvasInner({
     if (!isFullscreen) return
     const original = document.body.style.overflow
     document.body.style.overflow = "hidden"
-    const refit = setTimeout(() => flowRef.current?.fitView({ padding: DEFAULT_FIT_PADDING, duration: 250 }), 60)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault()
+        setIsFullscreen(false)
+      }
+    }
+    window.addEventListener("keydown", onKey)
+    const refit = window.setTimeout(() => {
+      flowRef.current?.fitView({ padding: DEFAULT_FIT_PADDING, duration: 250 })
+    }, 80)
     return () => {
       document.body.style.overflow = original
-      clearTimeout(refit)
+      window.removeEventListener("keydown", onKey)
+      window.clearTimeout(refit)
     }
   }, [isFullscreen])
 
+  // Refit when the canvas container resizes (fullscreen toggle, window resize).
   useEffect(() => {
-    if (!isFullscreen) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setIsFullscreen(false)
+    const el = wrapperRef.current
+    if (!el || typeof ResizeObserver === "undefined") return
+    let timer: number | undefined
+    const observer = new ResizeObserver(() => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => {
+        flowRef.current?.fitView({ padding: DEFAULT_FIT_PADDING, duration: 200 })
+      }, 80)
+    })
+    observer.observe(el)
+    return () => {
+      observer.disconnect()
+      window.clearTimeout(timer)
     }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
   }, [isFullscreen])
 
   const exportPng = useCallback(async () => {
@@ -599,11 +619,11 @@ function HierarchyCanvasInner({
 
   if (loading) return <div className="rounded-lg border border-border p-6 text-sm text-muted-foreground">Loading hierarchy...</div>
 
-  return (
+  const canvas = (
     <div
       className={
         isFullscreen
-          ? "fixed inset-0 z-50 flex flex-col gap-3 overflow-auto bg-background p-4"
+          ? "fixed inset-0 z-[100] flex flex-col gap-3 overflow-hidden bg-background p-4"
           : "space-y-3"
       }
     >
@@ -620,6 +640,10 @@ function HierarchyCanvasInner({
         </Button>
         <Button size="sm" variant="outline" className="gap-1.5" onClick={exportPng}>
           <Download className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Export PNG</span>
+        </Button>
+        <Button size="sm" variant="outline" className="gap-1.5" onClick={toggleFullscreen}>
+          {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+          <span className="hidden sm:inline">{isFullscreen ? "Exit fullscreen" : "Fullscreen"}</span>
         </Button>
 
         <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
@@ -750,6 +774,9 @@ function HierarchyCanvasInner({
       </Dialog>
     </div>
   )
+
+  // Portal out of the blurred/overflow layout shell so fullscreen covers the real viewport.
+  return isFullscreen ? createPortal(canvas, document.body) : canvas
 }
 
 export function HierarchyCanvas(props: HierarchyCanvasProps) {

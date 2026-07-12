@@ -9,6 +9,7 @@ import {
 } from "@/lib/validation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { DateInput } from "@/components/ui/date-input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -232,18 +233,14 @@ export default function AdhocWorkPage() {
           </div>
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">From</Label>
-            <Input
-              type="date"
-              className="h-9 w-[140px]"
+            <DateInput
               value={filters.from}
               onChange={(e) => setFilters((p) => ({ ...p, from: e.target.value }))}
             />
           </div>
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">To</Label>
-            <Input
-              type="date"
-              className="h-9 w-[140px]"
+            <DateInput
               value={filters.to}
               onChange={(e) => setFilters((p) => ({ ...p, to: e.target.value }))}
             />

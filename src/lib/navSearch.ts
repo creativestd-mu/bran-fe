@@ -16,6 +16,7 @@ import {
   Wrench,
   Lightbulb,
   ClipboardList,
+  Clock,
   Mic,
   Compass,
   Target,
@@ -29,7 +30,7 @@ export interface NavSearchItem {
   description: string
   icon: ElementType
   keywords: string[]
-  roles?: Array<"admin" | "manager" | "content_creator">
+  roles?: Array<"admin" | "manager" | "content_creator" | "chief_of_staff" | "superadmin">
   permissions?: string[]
   /** Base priority added to the text-match score so high-value pages win ties.
    *  Higher number = shown earlier when multiple results match equally. */
@@ -69,6 +70,18 @@ export const NAV_SEARCH_INDEX: NavSearchItem[] = [
       "coordination", "deliverable", "effort", "hours",
       "manual work", "time entry", "extra work", "miscellaneous work",
       "field work", "track time", "time log",
+    ],
+  },
+  {
+    label: "Attendance",
+    path: "/attendance",
+    description: "Daily ETA tracker — office, WFH, leave, reminders",
+    icon: Clock,
+    roles: ["chief_of_staff"],
+    keywords: [
+      "attendance", "eta", "wfh", "work from home", "leave", "comp off",
+      "compoff", "office", "missing", "reminder", "slack", "day off",
+      "cs-day-off", "late", "on time", "check in", "pod", "production pod",
     ],
   },
   {
