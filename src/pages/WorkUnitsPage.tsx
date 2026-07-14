@@ -174,6 +174,7 @@ function stepsProgress(unit: WorkUnit) {
 export default function WorkUnitsPage() {
   const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
+  const recordingFilter = searchParams.get("recording")
   const isManager = hasRole(user, "admin", "manager", "superadmin")
   const canCreate = hasPermission(user, "create_tasks")
 
@@ -241,9 +242,9 @@ export default function WorkUnitsPage() {
       try {
         const params: Parameters<typeof workApi.list>[0] = {
           page,
-          pageSize: 20,
-          status,
+          pageSize: recordingFilter ? 100 : 20,
         }
+        if (!recordingFilter) params.status = status
         if (isManager && filters.userId !== "all") params.userId = filters.userId
         if (filters.from) params.from = new Date(filters.from).toISOString()
         if (filters.to) {
@@ -252,15 +253,28 @@ export default function WorkUnitsPage() {
           params.to = end.toISOString()
         }
         const res = await workApi.list(params)
-        setUnits(res.items)
-        setPagination(res.pagination)
+        const items = recordingFilter
+          ? res.items.filter((unit) => unit.audioRecordingId === recordingFilter)
+          : res.items
+        setUnits(items)
+        setPagination(
+          recordingFilter
+            ? {
+                page: 1,
+                pageSize: items.length || 20,
+                total: items.length,
+                totalPages: 1,
+                hasNextPage: false,
+              }
+            : res.pagination
+        )
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to load work units")
       } finally {
         setLoading(false)
       }
     },
-    [filters, isManager, tab]
+    [filters, isManager, recordingFilter, tab]
   )
 
   useEffect(() => {
@@ -507,6 +521,23 @@ export default function WorkUnitsPage() {
           </div>
         )}
       </div>
+
+      {recordingFilter && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-card/40 px-3 py-2.5 text-sm">
+          <p className="text-muted-foreground">
+            Showing work units from a meeting recording.
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => setSearchParams({}, { replace: true })}
+          >
+            <X className="h-3.5 w-3.5" />
+            Clear filter
+          </Button>
+        </div>
+      )}
 
       {isManager && (
         <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border/60 bg-card/40 p-3">

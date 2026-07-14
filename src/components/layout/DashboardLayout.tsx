@@ -13,6 +13,8 @@ export function DashboardLayout() {
   const { theme } = useTheme()
   const location = useLocation()
   const isDashboardHome = location.pathname === "/dashboard"
+  const isBrainMap = location.pathname === "/brain"
+  const isFullBleed = isDashboardHome || isBrainMap
   usePageVisitTracking()
 
   useEffect(() => {
@@ -52,12 +54,14 @@ export function DashboardLayout() {
 
         <main
           className={
-            isDashboardHome
-              ? "flex flex-1 flex-col overflow-x-clip overflow-y-auto"
-              : "flex flex-1 flex-col overflow-hidden px-3 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-7"
+            isBrainMap
+              ? "flex min-h-0 flex-1 flex-col overflow-hidden"
+              : isDashboardHome
+                ? "flex flex-1 flex-col overflow-x-clip overflow-y-auto"
+                : "flex flex-1 flex-col overflow-hidden px-3 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-7"
           }
         >
-          {isDashboardHome ? (
+          {isFullBleed ? (
             <Outlet />
           ) : (
             <div className="mx-auto flex h-full min-h-0 w-full max-w-[1440px] flex-col overflow-y-auto overflow-x-hidden rounded-xl border border-border/55 bg-background/72 p-3 shadow-2xl shadow-black/10 backdrop-blur-xl sm:rounded-2xl sm:p-5 lg:rounded-[2rem] lg:p-6 dark:bg-background/62">

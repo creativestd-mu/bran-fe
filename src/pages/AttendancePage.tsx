@@ -4,9 +4,10 @@ import { etaApi } from "@/lib/api"
 import {
   canManageEta,
   type EtaBadge,
-  type EtaEntry,
+  type EtaFilter,
   type EtaListData,
   type EtaMember,
+  type EtaMonthCounts,
   type EtaPod,
   type EtaSummary,
 } from "@/types"
@@ -44,6 +45,10 @@ const EMPTY_SUMMARY: EtaSummary = {
   office: 0,
 }
 
+const EMPTY_MONTH_COUNTS: EtaMonthCounts = { leave: 0, wfh: 0, missing: 0 }
+
+const FILTER_STORAGE_KEY = "bran_attendance_filter"
+
 function todayIst(): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Kolkata",
@@ -77,6 +82,35 @@ function formatIstDateTime(iso: string | null): string {
   }).format(new Date(iso))
 }
 
+function readStoredFilter(): EtaFilter {
+  try {
+    const raw = localStorage.getItem(FILTER_STORAGE_KEY)
+    if (
+      raw === "total" ||
+      raw === "submitted" ||
+      raw === "missing" ||
+      raw === "office" ||
+      raw === "wfh" ||
+      raw === "leave" ||
+      raw === "compOff"
+    ) {
+      return raw
+    }
+  } catch {
+    /* ignore */
+  }
+  return "total"
+}
+
+function monthCountsLabel(counts: EtaMonthCounts | null | undefined): string {
+  const c = counts ?? EMPTY_MONTH_COUNTS
+  const parts: string[] = []
+  if (c.leave > 0) parts.push(`Leave ${c.leave}`)
+  if (c.wfh > 0) parts.push(`WFH ${c.wfh}`)
+  if (c.missing > 0) parts.push(`Missing ${c.missing}`)
+  return parts.length > 0 ? parts.join(" · ") : "—"
+}
+
 const BADGE_CONFIG: Record<
   EtaBadge,
   { label: string; className: string; variant?: "outline" | "secondary" }
@@ -101,6 +135,21 @@ const BADGE_CONFIG: Record<
     className:
       "border-blue-700/20 bg-blue-500/15 text-blue-800 dark:border-transparent dark:bg-blue-600/20 dark:text-blue-400",
   },
+  wfh_pending: {
+    label: "WFH pending",
+    className:
+      "border-amber-700/25 bg-amber-500/20 text-amber-800 dark:border-transparent dark:bg-amber-600/20 dark:text-amber-400",
+  },
+  wfh_approved: {
+    label: "WFH approved",
+    className:
+      "border-emerald-700/20 bg-emerald-500/15 text-emerald-800 dark:border-transparent dark:bg-emerald-600/20 dark:text-emerald-400",
+  },
+  wfh_denied: {
+    label: "WFH denied",
+    className:
+      "border-red-700/25 bg-red-500/15 text-red-800 dark:border-transparent dark:bg-red-600/20 dark:text-red-400",
+  },
   leave: {
     label: "Leave",
     className:
@@ -108,6 +157,11 @@ const BADGE_CONFIG: Record<
   },
   comp_off: {
     label: "Comp Off",
+    className:
+      "border-slate-700/20 bg-slate-500/15 text-slate-800 dark:border-transparent dark:bg-slate-600/20 dark:text-slate-300",
+  },
+  office: {
+    label: "Office",
     className:
       "border-slate-700/20 bg-slate-500/15 text-slate-800 dark:border-transparent dark:bg-slate-600/20 dark:text-slate-300",
   },
@@ -124,8 +178,17 @@ const BADGE_CONFIG: Record<
   },
 }
 
-function EtaBadgePill({ badge }: { badge: EtaBadge }) {
-  const config = BADGE_CONFIG[badge]
+const FALLBACK_BADGE = {
+  label: "Unknown",
+  variant: "outline" as const,
+  className: "",
+}
+
+function EtaBadgePill({ badge }: { badge: string | null | undefined }) {
+  const config = (badge && BADGE_CONFIG[badge as EtaBadge]) || {
+    ...FALLBACK_BADGE,
+    label: badge ? badge.replace(/_/g, " ") : "Unknown",
+  }
   return (
     <Badge variant={config.variant ?? "outline"} className={cn(config.className)}>
       {config.label}
@@ -133,14 +196,7 @@ function EtaBadgePill({ badge }: { badge: EtaBadge }) {
   )
 }
 
-function recordTypeLabel(type: EtaEntry["recordType"]): string {
-  if (!type) return "—"
-  if (type === "comp_off") return "Comp off"
-  if (type === "wfh") return "WFH"
-  return type.charAt(0).toUpperCase() + type.slice(1)
-}
-
-const SUMMARY_CHIPS: Array<{ key: keyof EtaSummary; label: string }> = [
+const SUMMARY_CHIPS: Array<{ key: EtaFilter; label: string }> = [
   { key: "total", label: "Total" },
   { key: "submitted", label: "Submitted" },
   { key: "missing", label: "Missing" },
@@ -155,12 +211,14 @@ export default function AttendancePage() {
   const isAdmin = canManageEta(user)
 
   const [date, setDate] = useState(todayIst)
+  const [filter, setFilter] = useState<EtaFilter>(readStoredFilter)
   const [data, setData] = useState<EtaListData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const [checking, setChecking] = useState(false)
   const [reminding, setReminding] = useState(false)
+  const [remindingSlackUserId, setRemindingSlackUserId] = useState<string | null>(null)
   const [remindConfirmOpen, setRemindConfirmOpen] = useState(false)
 
   const [membersOpen, setMembersOpen] = useState(false)
@@ -181,11 +239,21 @@ export default function AttendancePage() {
     })
   }, [members, membersQuery])
 
-  const fetchList = useCallback(async (selectedDate: string) => {
+  const selectFilter = (key: EtaFilter) => {
+    const next = filter === key && key !== "total" ? "total" : key
+    setFilter(next)
+    try {
+      localStorage.setItem(FILTER_STORAGE_KEY, next)
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const fetchList = useCallback(async (selectedDate: string, selectedFilter: EtaFilter) => {
     setLoading(true)
     setError(null)
     try {
-      const res = await etaApi.list({ date: selectedDate })
+      const res = await etaApi.list({ date: selectedDate, filter: selectedFilter })
       setData(res)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load attendance"
@@ -198,8 +266,8 @@ export default function AttendancePage() {
   }, [])
 
   useEffect(() => {
-    fetchList(date)
-  }, [date, fetchList])
+    fetchList(date, filter)
+  }, [date, filter, fetchList])
 
   const handleCheck = async () => {
     setChecking(true)
@@ -210,7 +278,7 @@ export default function AttendancePage() {
           ? `Weekend — synced ${res.membersSynced} members, no missing checks`
           : `Check done — ${res.missingCreated} missing, ${res.history.recorded} recorded`
       )
-      await fetchList(date)
+      await fetchList(date, filter)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to run check")
     } finally {
@@ -224,11 +292,29 @@ export default function AttendancePage() {
       const res = await etaApi.remind({ date })
       toast.success(`Reminders — sent ${res.sent}, skipped ${res.skipped}`)
       setRemindConfirmOpen(false)
-      await fetchList(date)
+      await fetchList(date, filter)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to send reminders")
     } finally {
       setReminding(false)
+    }
+  }
+
+  const handleRemindOne = async (entry: { slackUserId: string; userName: string }) => {
+    if (!entry.slackUserId) return
+    setRemindingSlackUserId(entry.slackUserId)
+    try {
+      const res = await etaApi.remind({ date, slackUserId: entry.slackUserId })
+      if (res.sent > 0) {
+        toast.success(`Reminder sent to ${entry.userName}`)
+      } else {
+        toast.message(`Reminder skipped for ${entry.userName}`)
+      }
+      await fetchList(date, filter)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to send reminder")
+    } finally {
+      setRemindingSlackUserId(null)
     }
   }
 
@@ -309,15 +395,26 @@ export default function AttendancePage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {SUMMARY_CHIPS.map(({ key, label }) => (
-          <div
-            key={key}
-            className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/55 px-3 py-1.5 text-xs"
-          >
-            <span className="text-muted-foreground">{label}</span>
-            <span className="font-medium tabular-nums">{summary[key]}</span>
-          </div>
-        ))}
+        {SUMMARY_CHIPS.map(({ key, label }) => {
+          const active = filter === key
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => selectFilter(key)}
+              aria-pressed={active}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition-colors",
+                active
+                  ? "border-primary/50 bg-primary/15 text-foreground"
+                  : "border-border/70 bg-card/55 hover:border-border hover:bg-card/80"
+              )}
+            >
+              <span className={cn(active ? "text-foreground" : "text-muted-foreground")}>{label}</span>
+              <span className="font-medium tabular-nums">{summary[key]}</span>
+            </button>
+          )
+        })}
       </div>
 
       {loading ? (
@@ -329,13 +426,15 @@ export default function AttendancePage() {
       ) : error ? (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-8 text-center">
           <p className="text-sm text-destructive">{error}</p>
-          <Button variant="outline" size="sm" className="mt-4" onClick={() => fetchList(date)}>
+          <Button variant="outline" size="sm" className="mt-4" onClick={() => fetchList(date, filter)}>
             Retry
           </Button>
         </div>
       ) : entries.length === 0 ? (
         <p className="p-8 text-center text-sm text-muted-foreground">
-          No attendance entries for this date.
+          {filter === "total"
+            ? "No attendance entries for this date."
+            : "No entries match the selected filter."}
         </p>
       ) : (
         <>
@@ -353,11 +452,27 @@ export default function AttendancePage() {
                   <EtaBadgePill badge={entry.badge} />
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                  <span>Type: {recordTypeLabel(entry.recordType)}</span>
                   <span>ETA: {entry.etaText || "—"}</span>
+                  <span>This month: {monthCountsLabel(entry.monthCounts)}</span>
                   <span>Submitted: {formatIstDateTime(entry.submittedAt)}</span>
                   <span>Reminder: {entry.reminderSentAt ? formatIstDateTime(entry.reminderSentAt) : "—"}</span>
                 </div>
+                {isAdmin && entry.status === "missing" && !entry.reminderSentAt && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8"
+                    disabled={remindingSlackUserId === entry.slackUserId}
+                    onClick={() => handleRemindOne(entry)}
+                  >
+                    {remindingSlackUserId === entry.slackUserId ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Bell className="h-3.5 w-3.5" />
+                    )}
+                    Remind
+                  </Button>
+                )}
               </div>
             ))}
           </div>
@@ -368,11 +483,12 @@ export default function AttendancePage() {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
-                  <TableHead>Type</TableHead>
                   <TableHead>ETA</TableHead>
+                  <TableHead>This month</TableHead>
                   <TableHead>Submitted at</TableHead>
                   <TableHead>Badge</TableHead>
                   <TableHead>Reminder sent</TableHead>
+                  {isAdmin && <TableHead className="w-[1%]" />}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -380,8 +496,10 @@ export default function AttendancePage() {
                   <TableRow key={entry.id}>
                     <TableCell className="font-medium">{entry.userName}</TableCell>
                     <TableCell className="text-muted-foreground">{entry.userEmail}</TableCell>
-                    <TableCell>{recordTypeLabel(entry.recordType)}</TableCell>
                     <TableCell className="tabular-nums">{entry.etaText || "—"}</TableCell>
+                    <TableCell className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+                      {monthCountsLabel(entry.monthCounts)}
+                    </TableCell>
                     <TableCell className="text-muted-foreground whitespace-nowrap">
                       {formatIstDateTime(entry.submittedAt)}
                     </TableCell>
@@ -391,6 +509,26 @@ export default function AttendancePage() {
                     <TableCell className="text-muted-foreground whitespace-nowrap">
                       {entry.reminderSentAt ? formatIstDateTime(entry.reminderSentAt) : "—"}
                     </TableCell>
+                    {isAdmin && (
+                      <TableCell>
+                        {entry.status === "missing" && !entry.reminderSentAt ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2"
+                            disabled={remindingSlackUserId === entry.slackUserId}
+                            onClick={() => handleRemindOne(entry)}
+                            title={`Remind ${entry.userName}`}
+                          >
+                            {remindingSlackUserId === entry.slackUserId ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Bell className="h-3.5 w-3.5" />
+                            )}
+                          </Button>
+                        ) : null}
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>

@@ -1,4 +1,3 @@
-import dagre from "dagre"
 import type { Connection, Edge, Node } from "@xyflow/react"
 import { MarkerType } from "@xyflow/react"
 import type { HierarchyKind, HierarchyMember, MemberRole, User, UserHierarchyMember } from "@/types"
@@ -36,7 +35,12 @@ export interface HierarchyGraphDiff {
   deletedMemberIds: string[]
 }
 
-const graph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}))
+/** Horizontal gap between sibling subtrees (keeps branches visually distinct). */
+const BRANCH_GAP_X = 72
+/** Vertical gap between hierarchy levels. */
+const BRANCH_GAP_Y = 110
+/** Extra gap between separate top-level trees in a forest. */
+const TREE_GAP_X = 120
 
 export function buildNodesFromMembers(kind: HierarchyKind, contextId: string, members: HierarchyMember[]): Node<HierarchyNodeData>[] {
   return members.map((member, index) => ({
@@ -80,24 +84,99 @@ export function createHierarchyEdge(source: string, target: string): Edge {
   }
 }
 
+/**
+ * Org-chart tree layout: each parent is centered above its children, and sibling
+ * subtrees are spaced apart so the graph reads as branched rather than one flat row.
+ */
 export function applyAutoLayout(nodes: Node<HierarchyNodeData>[], edges: Edge[]): Node<HierarchyNodeData>[] {
-  graph.setGraph({ rankdir: "TB", nodesep: 60, ranksep: 120, marginx: 40, marginy: 40 })
+  if (nodes.length === 0) return nodes
 
-  nodes.forEach((node) => graph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT }))
-  edges.forEach((edge) => graph.setEdge(edge.source, edge.target))
+  const nodeIds = new Set(nodes.map((node) => node.id))
+  const children = new Map<string, string[]>()
+  const parentOf = new Map<string, string>()
 
-  dagre.layout(graph)
+  edges.forEach((edge) => {
+    if (!nodeIds.has(edge.source) || !nodeIds.has(edge.target)) return
+    // One manager per report — keep the first edge if duplicates sneak in.
+    if (parentOf.has(edge.target)) return
+    parentOf.set(edge.target, edge.source)
+    if (!children.has(edge.source)) children.set(edge.source, [])
+    children.get(edge.source)!.push(edge.target)
+  })
 
-  return nodes.map((node) => {
-    const pos = graph.node(node.id)
-    return {
-      ...node,
-      position: {
-        x: pos.x - NODE_WIDTH / 2,
-        y: pos.y - NODE_HEIGHT / 2,
-      },
+  // Stable sibling order by existing x, then name.
+  const nodeById = new Map(nodes.map((node) => [node.id, node]))
+  for (const [, kids] of children) {
+    kids.sort((a, b) => {
+      const na = nodeById.get(a)!
+      const nb = nodeById.get(b)!
+      if (na.position.x !== nb.position.x) return na.position.x - nb.position.x
+      return na.data.user.name.localeCompare(nb.data.user.name)
+    })
+  }
+
+  const roots = nodes
+    .filter((node) => !parentOf.has(node.id))
+    .sort((a, b) => {
+      if (a.position.x !== b.position.x) return a.position.x - b.position.x
+      return a.data.user.name.localeCompare(b.data.user.name)
+    })
+    .map((node) => node.id)
+
+  const positions = new Map<string, { x: number; y: number }>()
+
+  const measureSubtreeWidth = (id: string): number => {
+    const kids = children.get(id) ?? []
+    if (kids.length === 0) return NODE_WIDTH
+    const kidsWidth =
+      kids.reduce((sum, kid) => sum + measureSubtreeWidth(kid), 0) + BRANCH_GAP_X * (kids.length - 1)
+    return Math.max(NODE_WIDTH, kidsWidth)
+  }
+
+  const place = (id: string, left: number, depth: number): number => {
+    const kids = children.get(id) ?? []
+    const y = depth * (NODE_HEIGHT + BRANCH_GAP_Y)
+
+    if (kids.length === 0) {
+      positions.set(id, { x: left, y })
+      return left + NODE_WIDTH / 2
+    }
+
+    let cursor = left
+    const childCenters: number[] = []
+    for (const kid of kids) {
+      const width = measureSubtreeWidth(kid)
+      const center = place(kid, cursor, depth + 1)
+      childCenters.push(center)
+      cursor += width + BRANCH_GAP_X
+    }
+
+    const centerX = (childCenters[0] + childCenters[childCenters.length - 1]) / 2
+    positions.set(id, { x: centerX - NODE_WIDTH / 2, y })
+    return centerX
+  }
+
+  let forestLeft = 40
+  for (const rootId of roots) {
+    const width = measureSubtreeWidth(rootId)
+    place(rootId, forestLeft, 0)
+    forestLeft += width + TREE_GAP_X
+  }
+
+  // Fallback for any node missed (shouldn't happen, but keep layout complete).
+  nodes.forEach((node, index) => {
+    if (!positions.has(node.id)) {
+      positions.set(node.id, {
+        x: 40 + (index % 4) * (NODE_WIDTH + BRANCH_GAP_X),
+        y: 40 + Math.floor(index / 4) * (NODE_HEIGHT + BRANCH_GAP_Y),
+      })
     }
   })
+
+  return nodes.map((node) => ({
+    ...node,
+    position: positions.get(node.id) ?? node.position,
+  }))
 }
 
 function detectCycleWithNewEdge(source: string, target: string, edges: Edge[]): boolean {
@@ -257,7 +336,19 @@ export function validateHierarchyGraph(
 }
 
 function userHierarchyMemberToUser(member: UserHierarchyMember, paletteUser?: User): User {
-  if (paletteUser) return paletteUser
+  if (paletteUser) {
+    return {
+      ...paletteUser,
+      isPlaceholder: member.isPlaceholder ?? paletteUser.isPlaceholder,
+      designation: member.designation ?? paletteUser.designation,
+      managerUserId: member.managerUserId,
+      isActive: member.isActive,
+      name: member.name || paletteUser.name,
+      email: member.email || paletteUser.email,
+      role: member.role ?? paletteUser.role,
+      roleId: member.role?.id ?? paletteUser.roleId,
+    }
+  }
   return {
     id: member.id,
     googleId: "",
@@ -269,6 +360,7 @@ function userHierarchyMemberToUser(member: UserHierarchyMember, paletteUser?: Us
     designation: member.designation,
     roleId: member.role.id,
     isActive: member.isActive,
+    isPlaceholder: member.isPlaceholder,
     managerUserId: member.managerUserId,
     lastLoginAt: null,
     createdAt: "",
@@ -276,6 +368,22 @@ function userHierarchyMemberToUser(member: UserHierarchyMember, paletteUser?: Us
     role: member.role,
     manager: member.manager,
   }
+}
+
+/** Merge directory users with hierarchy members so placeholders always appear in the palette. */
+export function mergeHierarchyPaletteUsers(
+  directoryUsers: User[],
+  hierarchyMembers: UserHierarchyMember[]
+): User[] {
+  const byId = new Map(directoryUsers.map((user) => [user.id, user]))
+  for (const member of hierarchyMembers) {
+    const existing = byId.get(member.id)
+    byId.set(member.id, userHierarchyMemberToUser(member, existing))
+  }
+  return [...byId.values()].sort((a, b) => {
+    if (Boolean(a.isPlaceholder) !== Boolean(b.isPlaceholder)) return a.isPlaceholder ? 1 : -1
+    return a.name.localeCompare(b.name)
+  })
 }
 
 export function usersToHierarchyMembers(

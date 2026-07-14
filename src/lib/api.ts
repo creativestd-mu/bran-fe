@@ -200,6 +200,13 @@ export const usersApi = {
     api.get<import("@/types").UserHierarchyResult>("/users/hierarchy", params as Record<string, unknown>),
   upsertHierarchy: (data: { members: Array<{ userId: string; managerUserId?: string | null }> }) =>
     api.put<import("@/types").UserHierarchyResult>("/users/hierarchy", data),
+  createNewHire: (data: {
+    name?: string
+    designation?: string
+    roleId: string
+    managerUserId?: string | null
+    email?: string
+  }) => api.post<import("@/types").User>("/users/new-hire", data),
   create: (data: {
     email: string
     name: string
@@ -220,6 +227,8 @@ export const usersApi = {
       designation: string
       roleId: string
       isActive: boolean
+      isPlaceholder: boolean
+      email: string
       managerUserId: string | null
     }>
   ) => api.put<import("@/types").User>(`/users/${id}`, data),
@@ -707,16 +716,58 @@ export const ideationApi = {
 
 /** Attendance / ETA tracker — /en/v1/attendance/* ≡ /api/eta/* */
 export const etaApi = {
-  list: (params?: { date?: string }) =>
+  list: (params?: { date?: string; filter?: import("@/types").EtaFilter }) =>
     api.get<import("@/types").EtaListData>("/attendance", params as Record<string, unknown>),
   check: (data?: { date?: string; sendReminders?: boolean }) =>
     api.post<import("@/types").EtaCheckResult>("/attendance/check", data ?? {}),
-  remind: (data?: { date?: string }) =>
+  remind: (data?: { date?: string; slackUserId?: string }) =>
     api.post<import("@/types").EtaRemindResult>("/attendance/remind", data ?? {}),
   listMembers: () => api.get<import("@/types").EtaMember[]>("/attendance/members"),
   updateMemberPod: (slackUserId: string, pod: import("@/types").EtaPod) =>
     api.patch<{ slackUserId: string; pod: import("@/types").EtaPod }>(
       `/attendance/members/${encodeURIComponent(slackUserId)}/pod`,
       { pod }
+    ),
+}
+
+/** Google Meet / Recall.ai meetings — /en/v1/meetings/* */
+export const meetingsApi = {
+  calendarStatus: () =>
+    api.get<import("@/types").CalendarStatus>("/meetings/calendar/status"),
+  connectCalendar: () =>
+    api.post<import("@/types").CalendarConnectResult>("/meetings/calendar/connect"),
+  disconnectCalendar: () => api.delete("/meetings/calendar"),
+  syncCalendar: () =>
+    api.post<{ synced: boolean; meetings: import("@/types").Meeting[] }>(
+      "/meetings/calendar/sync"
+    ),
+  list: (params?: { status?: import("@/types").MeetingStatus; limit?: number }) =>
+    api.get<import("@/types").Meeting[]>("/meetings", params as Record<string, unknown>),
+  join: (data: { meetingUrl: string; title?: string }) =>
+    api.post<import("@/types").Meeting>("/meetings/join", data),
+}
+
+function brainGraphQuery(params?: import("@/types").BrainGraphParams): string {
+  if (!params) return ""
+  const qs = new URLSearchParams()
+  if (params.from) qs.set("from", params.from)
+  if (params.to) qs.set("to", params.to)
+  if (params.limitMeetings != null) qs.set("limitMeetings", String(params.limitMeetings))
+  if (params.includeSteps) qs.set("includeSteps", "true")
+  const s = qs.toString()
+  return s ? `?${s}` : ""
+}
+
+/** Brain knowledge graph — /en/v1/graph/brain */
+export const graphApi = {
+  getBrain: (params?: import("@/types").BrainGraphParams) =>
+    api.get<import("@/types").BrainGraphData>(
+      "/graph/brain",
+      params as Record<string, unknown>
+    ),
+  rebuildBrain: (params?: import("@/types").BrainGraphParams) =>
+    api.post<import("@/types").BrainGraphData>(
+      `/graph/brain/rebuild${brainGraphQuery(params)}`,
+      {}
     ),
 }

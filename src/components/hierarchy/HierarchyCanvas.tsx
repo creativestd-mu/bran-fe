@@ -24,13 +24,14 @@ import {
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 import { toast } from "sonner"
-import { X, Download, Undo2, Redo2, Save, Upload, Sparkles, Maximize2, Minimize2 } from "lucide-react"
+import { X, Download, Undo2, Redo2, Save, Upload, Sparkles, Maximize2, Minimize2, UserPlus } from "lucide-react"
 import type { HierarchyKind, HierarchyMember, MemberRole, User } from "@/types"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { NodeInspector } from "./NodeInspector"
-import { UserPalette } from "./UserPalette"
+import { NEW_HIRE_DRAG_MIME, UserPalette } from "./UserPalette"
+import { NewHireDialog, type NewHireFormValues } from "./NewHireDialog"
 import {
   applyAutoLayout,
   buildEdgesFromMembers,
@@ -42,10 +43,12 @@ import {
   type HierarchyNodeData,
   validateHierarchyGraph,
   NODE_HEIGHT,
+  NODE_WIDTH,
 } from "./hierarchyUtils"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useHierarchySync } from "@/hooks/useHierarchySync"
 import { useMediaQuery } from "@/hooks/useMediaQuery"
+import { usersApi } from "@/lib/api"
 
 interface HierarchyCanvasProps {
   kind: HierarchyKind
@@ -93,25 +96,34 @@ const LEVEL_COLORS = [
 ]
 
 const DEFAULT_FIT_PADDING = 0.62
+const FULLSCREEN_FIT_PADDING = 0.12
+/** Default React Flow minZoom is 0.5; 0.125 allows ~300% more zoom-out. */
+const MIN_ZOOM = 0.125
+const MAX_ZOOM = 2.5
 
 function HierarchyNodeCard({ id, data }: NodeProps<Node<CanvasNodeData>>) {
-  const initials = data.user.name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase()
+  const isPlaceholder = Boolean(data.user.isPlaceholder)
+  const initials = isPlaceholder
+    ? "+"
+    : data.user.name
+        .split(" ")
+        .map((part) => part[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase()
 
   const level = data.level ?? 0
   const palette = LEVEL_COLORS[Math.min(level, LEVEL_COLORS.length - 1)]
-  const levelLabel = data.isRoot ? "Top level" : `Level ${level + 1}`
+  const levelLabel = isPlaceholder ? "New hire" : data.isRoot ? "Top level" : `Level ${level + 1}`
 
   return (
     <div
       className="relative w-[min(220px,calc(100vw-3rem))] rounded-lg border-2 bg-card p-3 shadow-lg transition"
       style={{
         borderColor: palette.border,
+        borderStyle: isPlaceholder ? "dashed" : "solid",
         boxShadow: `0 0 0 1px ${palette.glow}, 0 4px 12px rgba(0,0,0,0.25)`,
+        opacity: isPlaceholder ? 0.92 : 1,
       }}
     >
       <Handle
@@ -148,7 +160,11 @@ function HierarchyNodeCard({ id, data }: NodeProps<Node<CanvasNodeData>>) {
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium leading-tight">{data.user.name}</p>
           <div className="mt-0.5 flex items-center gap-1.5">
-            {data.showMemberRole === false ? (
+            {isPlaceholder ? (
+              <Badge variant="secondary" className="max-w-28 truncate text-[10px]">
+                {data.user.designation || "Open role"}
+              </Badge>
+            ) : data.showMemberRole === false ? (
               <Badge variant="outline" className="max-w-24 truncate text-[10px] capitalize">
                 {data.user.role?.name?.replace("_", " ") ?? "User"}
               </Badge>
@@ -193,15 +209,21 @@ function HierarchyCanvasInner({
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [newHireOpen, setNewHireOpen] = useState(false)
+  const [newHireSubmitting, setNewHireSubmitting] = useState(false)
+  const [convertingPlaceholder, setConvertingPlaceholder] = useState(false)
+  const [pendingNewHirePosition, setPendingNewHirePosition] = useState<{ x: number; y: number } | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [past, setPast] = useState<Snapshot[]>([])
   const [future, setFuture] = useState<Snapshot[]>([])
 
+  const shellRef = useRef<HTMLDivElement>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const flowRef = useRef<ReactFlowInstance<Node<HierarchyNodeData>, Edge> | null>(null)
   const hasInitialFitRef = useRef(false)
   const { syncGraph } = useHierarchySync({ contextId, adapter })
   const isDesktop = useMediaQuery("(min-width: 1024px)")
+  const fitPadding = isFullscreen ? FULLSCREEN_FIT_PADDING : DEFAULT_FIT_PADDING
   const userById = useMemo(() => new Map(users.map((user) => [user.id, user])), [users])
   const enrichedMembers = useMemo<HierarchyMember[]>(() => {
     return members.map((member) => {
@@ -241,6 +263,7 @@ function HierarchyCanvasInner({
       flowRef.current?.fitView({
         padding: DEFAULT_FIT_PADDING,
         duration: 0,
+        minZoom: MIN_ZOOM,
         maxZoom: 0.72,
       })
     }, 80)
@@ -314,16 +337,19 @@ function HierarchyCanvasInner({
   }, [edges, levels, selectedEdgeId])
 
   const renderNodes = useMemo<Node<CanvasNodeData>[]>(() => {
-    return nodes.map((node) => ({
-      ...node,
-      data: {
-        ...node.data,
-        isRoot: roots.includes(node.id),
-        level: levels.get(node.id) ?? 0,
-        onRemove: allowRemove ? removeNode : undefined,
-        showMemberRole: kind !== "user",
-      },
-    }))
+    return nodes.map((node) => {
+      const canRemove = allowRemove || Boolean(node.data.user.isPlaceholder)
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          isRoot: roots.includes(node.id),
+          level: levels.get(node.id) ?? 0,
+          onRemove: canRemove ? removeNode : undefined,
+          showMemberRole: kind !== "user",
+        },
+      }
+    })
   }, [nodes, roots, levels, removeNode, allowRemove, kind])
 
   const onNodesChange = useCallback(
@@ -373,9 +399,17 @@ function HierarchyCanvasInner({
   }, [selectedNode, edges, nodes])
 
   const managerSelectOptions = useMemo(() => {
-    if (!selectedNode) return users
-    return users.filter((user) => user.id !== selectedNode.data.user.id)
-  }, [selectedNode, users])
+    const byId = new Map<string, User>()
+    users.forEach((user) => {
+      if (!user.isPlaceholder) byId.set(user.id, user)
+    })
+    nodes.forEach((node) => {
+      if (!node.data.user.isPlaceholder) byId.set(node.data.user.id, node.data.user)
+    })
+    if (!selectedNode) return [...byId.values()]
+    byId.delete(selectedNode.data.user.id)
+    return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name))
+  }, [selectedNode, users, nodes])
 
   const setManagerByUserId = useCallback(
     (managerUserId: string | null) => {
@@ -495,30 +529,81 @@ function HierarchyCanvasInner({
   const autoLayout = useCallback(() => {
     pushSnapshot()
     setNodes((prev) => applyAutoLayout(prev, edges))
-    setTimeout(() => flowRef.current?.fitView({ duration: 300, padding: DEFAULT_FIT_PADDING }), 50)
-  }, [edges, pushSnapshot])
+    setTimeout(() => {
+      flowRef.current?.fitView({
+        duration: 300,
+        padding: isFullscreen ? FULLSCREEN_FIT_PADDING : DEFAULT_FIT_PADDING,
+        minZoom: MIN_ZOOM,
+        maxZoom: MAX_ZOOM,
+      })
+    }, 50)
+  }, [edges, pushSnapshot, isFullscreen])
 
-  const toggleFullscreen = useCallback(() => {
-    setIsFullscreen((prev) => !prev)
+  const exitFullscreen = useCallback(async () => {
+    setIsFullscreen(false)
+    if (document.fullscreenElement) {
+      try {
+        await document.exitFullscreen()
+      } catch {
+        /* already exited */
+      }
+    }
   }, [])
 
+  const toggleFullscreen = useCallback(() => {
+    if (isFullscreen) {
+      void exitFullscreen()
+      return
+    }
+    setIsFullscreen(true)
+  }, [isFullscreen, exitFullscreen])
+
+  // Enter native browser fullscreen so the whole monitor is used (hides browser chrome).
   useEffect(() => {
     if (!isFullscreen) return
     const original = document.body.style.overflow
     document.body.style.overflow = "hidden"
+
+    const el = shellRef.current
+    const enter = async () => {
+      if (!el || document.fullscreenElement) return
+      try {
+        await el.requestFullscreen()
+      } catch {
+        /* CSS fixed overlay still covers the viewport if the API is blocked */
+      }
+    }
+    const enterTimer = window.setTimeout(() => {
+      void enter()
+    }, 30)
+
+    const onFsChange = () => {
+      if (!document.fullscreenElement) setIsFullscreen(false)
+    }
+    document.addEventListener("fullscreenchange", onFsChange)
+
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+      if (e.key === "Escape" && !document.fullscreenElement) {
         e.preventDefault()
         setIsFullscreen(false)
       }
     }
     window.addEventListener("keydown", onKey)
+
     const refit = window.setTimeout(() => {
-      flowRef.current?.fitView({ padding: DEFAULT_FIT_PADDING, duration: 250 })
-    }, 80)
+      flowRef.current?.fitView({
+        padding: FULLSCREEN_FIT_PADDING,
+        duration: 250,
+        minZoom: MIN_ZOOM,
+        maxZoom: MAX_ZOOM,
+      })
+    }, 120)
+
     return () => {
       document.body.style.overflow = original
+      document.removeEventListener("fullscreenchange", onFsChange)
       window.removeEventListener("keydown", onKey)
+      window.clearTimeout(enterTimer)
       window.clearTimeout(refit)
     }
   }, [isFullscreen])
@@ -531,7 +616,12 @@ function HierarchyCanvasInner({
     const observer = new ResizeObserver(() => {
       window.clearTimeout(timer)
       timer = window.setTimeout(() => {
-        flowRef.current?.fitView({ padding: DEFAULT_FIT_PADDING, duration: 200 })
+        flowRef.current?.fitView({
+          padding: isFullscreen ? FULLSCREEN_FIT_PADDING : DEFAULT_FIT_PADDING,
+          duration: 200,
+          minZoom: MIN_ZOOM,
+          maxZoom: MAX_ZOOM,
+        })
       }, 80)
     })
     observer.observe(el)
@@ -568,6 +658,9 @@ function HierarchyCanvasInner({
       }
       if (event.key === "Delete" || event.key === "Backspace") {
         if (selectedNodeId) {
+          const selected = nodes.find((node) => node.id === selectedNodeId)
+          const canRemove = allowRemove || Boolean(selected?.data.user.isPlaceholder)
+          if (!canRemove) return
           event.preventDefault()
           removeNode(selectedNodeId)
         } else if (selectedEdgeId) {
@@ -581,12 +674,35 @@ function HierarchyCanvasInner({
 
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
-  }, [undo, redo, selectedNodeId, selectedEdgeId, removeNode, pushSnapshot])
+  }, [undo, redo, selectedNodeId, selectedEdgeId, removeNode, pushSnapshot, nodes, allowRemove])
+
+  const openNewHireDialog = useCallback((position?: { x: number; y: number } | null) => {
+    if (position) {
+      setPendingNewHirePosition(position)
+    } else if (flowRef.current) {
+      const bounds = wrapperRef.current?.getBoundingClientRect()
+      const screenPoint = bounds
+        ? { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 }
+        : { x: window.innerWidth / 2, y: window.innerHeight / 2 }
+      setPendingNewHirePosition(flowRef.current.screenToFlowPosition(screenPoint))
+    } else {
+      setPendingNewHirePosition({ x: 120, y: 120 })
+    }
+    setNewHireOpen(true)
+  }, [])
 
   const onDrop = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
       event.preventDefault()
       if (!flowRef.current) return
+
+      const position = flowRef.current.screenToFlowPosition({ x: event.clientX, y: event.clientY })
+
+      if (kind === "user" && event.dataTransfer.getData(NEW_HIRE_DRAG_MIME)) {
+        openNewHireDialog(position)
+        return
+      }
+
       const raw = event.dataTransfer.getData("application/bran-user")
       if (!raw) return
 
@@ -597,7 +713,6 @@ function HierarchyCanvasInner({
         return
       }
 
-      const position = flowRef.current.screenToFlowPosition({ x: event.clientX, y: event.clientY })
       const newNode: Node<HierarchyNodeData> = {
         id: `temp-${user.id}-${Date.now()}`,
         type: "hierarchyNode",
@@ -614,21 +729,130 @@ function HierarchyCanvasInner({
       pushSnapshot()
       setNodes((prev) => [...prev, newNode])
     },
-    [nodes, contextId, kind, pushSnapshot]
+    [nodes, contextId, kind, pushSnapshot, openNewHireDialog]
   )
+
+  const handleCreateNewHire = useCallback(
+    async (values: NewHireFormValues) => {
+      const position = pendingNewHirePosition ?? { x: 120, y: 120 }
+      setNewHireSubmitting(true)
+      try {
+        const user = await usersApi.createNewHire({
+          name: values.name,
+          designation: values.designation || undefined,
+          roleId: values.roleId,
+          email: values.email || undefined,
+        })
+
+        const newNode: Node<HierarchyNodeData> = {
+          id: user.id,
+          type: "hierarchyNode",
+          position,
+          data: {
+            memberId: user.id,
+            user: { ...user, isPlaceholder: true },
+            memberRole: "MEMBER",
+            isActive: user.isActive,
+            contextId,
+            kind,
+          },
+        }
+
+        pushSnapshot()
+        setNodes((prev) => [...prev, newNode])
+        setOriginalNodes((prev) => [...prev, newNode])
+        setSelectedNodeId(user.id)
+        setNewHireOpen(false)
+        setPendingNewHirePosition(null)
+        toast.success("New hire box added — connect a manager, then publish")
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to create new hire")
+      } finally {
+        setNewHireSubmitting(false)
+      }
+    },
+    [pendingNewHirePosition, pushSnapshot, contextId, kind]
+  )
+
+  const handleConvertPlaceholder = useCallback(
+    async (values: { name: string; email: string; designation: string }) => {
+      if (!selectedNode || !selectedNode.data.user.isPlaceholder) return
+      setConvertingPlaceholder(true)
+      try {
+        const updated = await usersApi.update(selectedNode.data.user.id, {
+          name: values.name,
+          email: values.email,
+          designation: values.designation || undefined,
+          isPlaceholder: false,
+          isActive: true,
+          managerUserId: managerUserId,
+        })
+        setNodes((prev) =>
+          prev.map((node) =>
+            node.id === selectedNode.id
+              ? {
+                  ...node,
+                  data: {
+                    ...node.data,
+                    user: { ...updated, isPlaceholder: false },
+                    isActive: updated.isActive,
+                  },
+                }
+              : node
+          )
+        )
+        toast.success("Converted to a real user")
+        await onReload()
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to convert placeholder")
+      } finally {
+        setConvertingPlaceholder(false)
+      }
+    },
+    [selectedNode, managerUserId, onReload]
+  )
+
+  const canvasUsers = useMemo(
+    () => nodes.map((node) => ({ nodeId: node.id, user: node.data.user })),
+    [nodes]
+  )
+
+  const selectAndFocusNode = useCallback((nodeId: string) => {
+    setSelectedNodeId(nodeId)
+    setSelectedEdgeId(null)
+    setNodes((prev) => prev.map((node) => ({ ...node, selected: node.id === nodeId })))
+
+    // Wait a tick so selection paints, then zoom the map onto that person.
+    window.setTimeout(() => {
+      const node = flowRef.current?.getNode(nodeId)
+      if (!flowRef.current || !node) return
+      flowRef.current.setCenter(
+        node.position.x + NODE_WIDTH / 2,
+        node.position.y + NODE_HEIGHT / 2,
+        { zoom: Math.max(flowRef.current.getZoom(), 1.05), duration: 420 }
+      )
+    }, 30)
+  }, [])
 
   if (loading) return <div className="rounded-lg border border-border p-6 text-sm text-muted-foreground">Loading hierarchy...</div>
 
   const canvas = (
     <div
+      ref={shellRef}
       className={
         isFullscreen
-          ? "fixed inset-0 z-[100] flex flex-col gap-3 overflow-hidden bg-background p-4"
+          ? "fixed inset-0 z-[100] flex h-screen w-screen flex-col overflow-hidden bg-background"
           : "space-y-3"
       }
     >
       {/* Compact toolbar */}
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2.5">
+      <div
+        className={
+          isFullscreen
+            ? "flex shrink-0 flex-wrap items-center gap-2 border-b border-border bg-card px-3 py-2"
+            : "flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2.5"
+        }
+      >
         <Button size="sm" variant="outline" className="gap-1.5" disabled={past.length === 0} onClick={undo}>
           <Undo2 className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Undo</span>
         </Button>
@@ -641,6 +865,11 @@ function HierarchyCanvasInner({
         <Button size="sm" variant="outline" className="gap-1.5" onClick={exportPng}>
           <Download className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Export PNG</span>
         </Button>
+        {kind === "user" && (
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => openNewHireDialog()}>
+            <UserPlus className="h-3.5 w-3.5" /> <span className="hidden sm:inline">New Hire</span>
+          </Button>
+        )}
         <Button size="sm" variant="outline" className="gap-1.5" onClick={toggleFullscreen}>
           {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
           <span className="hidden sm:inline">{isFullscreen ? "Exit fullscreen" : "Fullscreen"}</span>
@@ -659,23 +888,40 @@ function HierarchyCanvasInner({
       <div
         className={
           isFullscreen
-            ? "grid min-h-0 flex-1 gap-3 lg:grid-cols-[260px_minmax(0,1fr)_280px]"
-            : "grid gap-3 lg:grid-cols-[260px_minmax(0,1fr)_280px]"
+            ? "relative min-h-0 flex-1"
+            : "grid h-[50vh] min-h-[280px] gap-3 sm:h-[60vh] lg:h-[74vh] lg:grid-cols-[260px_minmax(0,1fr)_280px]"
         }
       >
-        <UserPalette users={users} />
+        <div
+          className={
+            isFullscreen
+              ? "absolute bottom-3 left-3 top-3 z-20 hidden min-h-0 w-[280px] lg:flex"
+              : "hidden min-h-0 lg:flex"
+          }
+        >
+          <UserPalette
+            canvasUsers={canvasUsers}
+            users={users}
+            allowNewHire={kind === "user"}
+            selectedNodeId={selectedNodeId}
+            onSelectNode={selectAndFocusNode}
+            onAddNewHire={() => openNewHireDialog()}
+          />
+        </div>
 
         <div
           className={
             isFullscreen
-              ? "relative h-full min-h-0 overflow-hidden rounded-lg border border-border"
-              : "relative h-[50vh] min-h-[280px] overflow-hidden rounded-lg border border-border sm:h-[60vh] lg:h-[74vh]"
+              ? "absolute inset-0 overflow-hidden bg-background"
+              : "relative min-h-0 overflow-hidden rounded-lg border border-border"
           }
           ref={wrapperRef}
         >
           {nodes.length === 0 && (
             <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 text-center">
-              <p className="text-sm font-medium text-accent">Drag team members from the palette</p>
+              <p className="text-sm font-medium text-accent">
+                {kind === "user" ? "Drag people or a New Hire box from the palette" : "Drag team members from the palette"}
+              </p>
               <p className="max-w-xs text-xs text-muted-foreground">
                 Drop them here, then drag from the bottom dot of a manager to the top dot of their report to draw a reporting line.
               </p>
@@ -701,7 +947,9 @@ function HierarchyCanvasInner({
               setSelectedEdgeId(selectedEdges[0]?.id ?? null)
             }}
             fitView
-            fitViewOptions={{ padding: DEFAULT_FIT_PADDING }}
+            fitViewOptions={{ padding: fitPadding, minZoom: MIN_ZOOM, maxZoom: MAX_ZOOM }}
+            minZoom={MIN_ZOOM}
+            maxZoom={MAX_ZOOM}
             connectionRadius={40}
             connectionLineStyle={{ stroke: "#d4af37", strokeWidth: 2 }}
             defaultEdgeOptions={{
@@ -713,14 +961,13 @@ function HierarchyCanvasInner({
             proOptions={{ hideAttribution: true }}
           >
             <Controls
-              showFitView={false}
-              className="!border-border !bg-card !shadow-md [&>button]:!border-border [&>button]:!bg-card [&>button]:!text-foreground [&>button:hover]:!bg-muted [&>button:nth-of-type(3)]:!order-2"
+              showFitView
+              className="!border-border !bg-card !shadow-md [&>button]:!border-border [&>button]:!bg-card [&>button]:!text-foreground [&>button:hover]:!bg-muted"
             >
               <ControlButton
                 onClick={toggleFullscreen}
                 title={isFullscreen ? "Exit fullscreen" : "Open fullscreen"}
                 aria-label={isFullscreen ? "Exit fullscreen" : "Open fullscreen"}
-                style={{ order: 1 }}
               >
                 {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
               </ControlButton>
@@ -729,21 +976,39 @@ function HierarchyCanvasInner({
           </ReactFlow>
         </div>
 
-        <div className="hidden lg:block">
+        <div
+          className={
+            isFullscreen
+              ? "absolute bottom-3 right-3 top-3 z-20 hidden min-h-0 w-[280px] lg:flex"
+              : "hidden min-h-0 lg:flex"
+          }
+        >
           <NodeInspector
             node={selectedNode}
             managerName={managerName}
             managerUserId={managerUserId}
             managerOptions={managerSelectOptions}
             kind={kind}
-            allowRemove={allowRemove}
+            allowRemove={allowRemove || Boolean(selectedNode?.data.user.isPlaceholder)}
+            converting={convertingPlaceholder}
             onRoleChange={(memberRole) => selectedNodeId && updateRole(selectedNodeId, memberRole)}
             onManagerChange={setManagerByUserId}
             onSetTopLevel={setTopLevel}
             onRemove={() => selectedNodeId && removeNode(selectedNodeId)}
+            onConvertPlaceholder={kind === "user" ? handleConvertPlaceholder : undefined}
           />
         </div>
       </div>
+
+      <NewHireDialog
+        open={newHireOpen}
+        submitting={newHireSubmitting}
+        onOpenChange={(open) => {
+          setNewHireOpen(open)
+          if (!open) setPendingNewHirePosition(null)
+        }}
+        onSubmit={handleCreateNewHire}
+      />
 
       <Dialog
         open={!!selectedNode && !isDesktop}
@@ -764,11 +1029,13 @@ function HierarchyCanvasInner({
             managerUserId={managerUserId}
             managerOptions={managerSelectOptions}
             kind={kind}
-            allowRemove={allowRemove}
+            allowRemove={allowRemove || Boolean(selectedNode?.data.user.isPlaceholder)}
+            converting={convertingPlaceholder}
             onRoleChange={(memberRole) => selectedNodeId && updateRole(selectedNodeId, memberRole)}
             onManagerChange={setManagerByUserId}
             onSetTopLevel={setTopLevel}
             onRemove={() => selectedNodeId && removeNode(selectedNodeId)}
+            onConvertPlaceholder={kind === "user" ? handleConvertPlaceholder : undefined}
           />
         </DialogContent>
       </Dialog>

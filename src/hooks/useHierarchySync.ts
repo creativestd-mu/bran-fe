@@ -42,7 +42,12 @@ export function useHierarchySync({ contextId, adapter }: UseHierarchySyncOptions
           reportsToUserId: node.reportsToUserId,
         }))
         await adapter.upsertGraph(contextId, { members })
-        return { created: [], updated: [], deletedMemberIds: [] }
+
+        const diff = diffHierarchyGraphs(originalNodes, originalEdges, currentNodes, currentEdges)
+        for (const memberId of diff.deletedMemberIds) {
+          await adapter.deleteMember(memberId)
+        }
+        return diff
       }
 
       const diff = diffHierarchyGraphs(originalNodes, originalEdges, currentNodes, currentEdges)

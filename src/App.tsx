@@ -31,6 +31,8 @@ import VisionsPage from "@/pages/VisionsPage"
 import KPIsPage from "@/pages/KPIsPage"
 import InventoryPage from "@/pages/InventoryPage"
 import AttendancePage from "@/pages/AttendancePage"
+import MeetingsPage from "@/pages/MeetingsPage"
+import BrainMapPage from "@/pages/BrainMapPage"
 
 function App() {
   const { user, loading } = useAuth()
@@ -94,12 +96,14 @@ function App() {
         <Route
           path="/attendance"
           element={
-            <ProtectedRoute roles={["chief_of_staff"]}>
+            <ProtectedRoute roles={["admin", "chief_of_staff"]}>
               <AttendancePage />
             </ProtectedRoute>
           }
         />
         <Route path="/work" element={<WorkUnitsPage />} />
+        <Route path="/meetings" element={<MeetingsPage />} />
+        <Route path="/brain" element={<BrainMapPage />} />
         <Route path="/visions" element={<VisionsPage />} />
         <Route path="/kpis" element={<KPIsPage />} />
         <Route

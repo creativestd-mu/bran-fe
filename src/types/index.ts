@@ -16,6 +16,8 @@ export interface User {
   roleId: string
   isActive: boolean
   managerUserId?: string | null
+  /** Open role / new-hire slot on the org chart (cannot sign in). */
+  isPlaceholder?: boolean
   lastLoginAt: string | null
   createdAt: string
   updatedAt: string
@@ -40,6 +42,7 @@ export interface UserHierarchyMember {
   designation: string | null
   managerUserId: string | null
   isActive: boolean
+  isPlaceholder?: boolean
   role: { id: string; name: string }
   manager: UserManagerRef | null
   directReports?: UserHierarchyMember[]
@@ -837,11 +840,24 @@ export type EtaBadge =
   | "late_submission"
   | "late_arrival"
   | "wfh"
+  | "wfh_pending"
+  | "wfh_approved"
+  | "wfh_denied"
   | "leave"
   | "comp_off"
+  | "office"
   | "missing"
   | "submitted"
 export type EtaPod = "default" | "production"
+
+export type EtaFilter =
+  | "total"
+  | "submitted"
+  | "missing"
+  | "office"
+  | "wfh"
+  | "leave"
+  | "compOff"
 
 export interface EtaSummary {
   total: number
@@ -869,9 +885,20 @@ export interface EtaEntry {
   rawMessage: string | null
   slackMessageTs: string | null
   reminderSentAt: string | null
+  wfhApprovalState?: "pending" | "approved" | "denied" | null
+  wfhApprovedAt?: string | null
+  wfhApprovedBySlackUserId?: string | null
+  wfhApprovalNote?: string | null
   createdAt: string
   updatedAt: string
   badge: EtaBadge
+  monthCounts?: EtaMonthCounts
+}
+
+export interface EtaMonthCounts {
+  leave: number
+  wfh: number
+  missing: number
 }
 
 export interface EtaListData {
@@ -905,5 +932,108 @@ export interface EtaMember {
 }
 
 export function canManageEta(user: User | null): boolean {
-  return hasRole(user, "chief_of_staff")
+  return hasRole(user, "admin", "chief_of_staff")
+}
+
+// ---------- Google Meet / Meetings ----------
+
+export type CalendarConnectionStatus = "CONNECTED" | "DISCONNECTED" | "ERROR"
+
+export type MeetingStatus =
+  | "SCHEDULED"
+  | "JOINING"
+  | "RECORDING"
+  | "PROCESSING"
+  | "COMPLETED"
+  | "FAILED"
+  | "CANCELLED"
+
+export interface CalendarStatus {
+  connected: boolean
+  status?: CalendarConnectionStatus
+  oauthEmail?: string
+  connectedAt?: string
+}
+
+export interface MeetingVoiceRecording {
+  id: string
+  transcript: string | null
+  status: string
+}
+
+export interface Meeting {
+  id: string
+  organizerUserId: string
+  recallBotId: string | null
+  calendarEventId: string | null
+  meetingUrl: string
+  title: string | null
+  startTime: string | null
+  status: MeetingStatus
+  voiceRecordingId: string | null
+  errorMessage: string | null
+  createdAt: string
+  updatedAt: string
+  voiceRecording: MeetingVoiceRecording | null
+}
+
+export interface CalendarConnectResult {
+  authorizationUrl: string
+}
+
+// ---------- Brain map (Obsidian-style graph) ----------
+
+export type BrainNodeType =
+  | "member"
+  | "meeting"
+  | "work_unit"
+  | "work_step"
+  | "project"
+  | "idea"
+  | "theme"
+  | "collaboration"
+
+export interface BrainNodeMeta {
+  color?: string
+  entityId?: string
+  status?: string
+  email?: string
+  avatarUrl?: string
+  designation?: string
+  meetingUrl?: string
+  startTime?: string | null
+  hasTranscript?: boolean
+  aiGenerated?: boolean
+  [key: string]: unknown
+}
+
+export interface BrainNode {
+  id: string
+  type: BrainNodeType
+  label: string
+  val: number
+  meta: BrainNodeMeta
+}
+
+export interface BrainEdge {
+  id: string
+  source: string
+  target: string
+  type: string
+  weight?: number
+  label?: string
+}
+
+export interface BrainGraphData {
+  generatedAt: string
+  cached: boolean
+  nodes: BrainNode[]
+  edges: BrainEdge[]
+}
+
+export interface BrainGraphParams {
+  from?: string
+  to?: string
+  limitMeetings?: number
+  includeSteps?: boolean
 }

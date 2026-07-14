@@ -18,6 +18,8 @@ import {
   ClipboardList,
   Clock,
   Mic,
+  Video,
+  Orbit,
   Compass,
   Target,
   Package,
@@ -77,7 +79,7 @@ export const NAV_SEARCH_INDEX: NavSearchItem[] = [
     path: "/attendance",
     description: "Daily ETA tracker — office, WFH, leave, reminders",
     icon: Clock,
-    roles: ["chief_of_staff"],
+    roles: ["admin", "chief_of_staff"],
     keywords: [
       "attendance", "eta", "wfh", "work from home", "leave", "comp off",
       "compoff", "office", "missing", "reminder", "slack", "day off",
@@ -95,6 +97,29 @@ export const NAV_SEARCH_INDEX: NavSearchItem[] = [
       "voice memo", "voice", "record", "recording", "audio", "transcribe",
       "transcript", "action item", "action point", "outcome", "memo",
       "minutes", "meeting notes", "generate", "ai generate",
+    ],
+  },
+  {
+    label: "Meetings",
+    path: "/meetings",
+    description: "Connect Google Calendar and send Bran Notetaker to Meet calls",
+    icon: Video,
+    weight: 9,
+    keywords: [
+      "meetings", "google meet", "meet", "calendar", "notetaker",
+      "bran notetaker", "recall", "bot", "join meeting", "google calendar",
+      "meeting bot", "auto join", "record meeting",
+    ],
+  },
+  {
+    label: "Brain map",
+    path: "/brain",
+    description: "Obsidian-style knowledge graph of people, meetings, and work",
+    icon: Orbit,
+    weight: 9,
+    keywords: [
+      "brain", "brain map", "graph", "obsidian", "knowledge graph",
+      "network", "constellation", "map", "themes", "collaboration map",
     ],
   },
   {
