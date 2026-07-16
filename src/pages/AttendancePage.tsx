@@ -34,7 +34,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
-import { Bell, Loader2, RefreshCw, RotateCcw, Search, Users } from "lucide-react"
+import { Bell, Loader2, Pencil, RefreshCw, Search, Users } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const EMPTY_SUMMARY: EtaSummary = {
@@ -149,6 +149,66 @@ function StatChip({
       <p className="text-[11px] text-muted-foreground">{label}</p>
       <p className="text-lg font-semibold tabular-nums">{value}</p>
     </div>
+  )
+}
+
+type CountDraft = {
+  wfhApproved: string
+  wfhDenied: string
+  wfhPending: string
+  leaveApproved: string
+  leaveDenied: string
+  leavePending: string
+  missing: string
+  onTime: string
+  lateSubmission: string
+  lateArrival: string
+}
+
+function draftFromDetail(detail: EtaUserDetail): CountDraft {
+  return {
+    wfhApproved: String(detail.breakdown.wfh.approved),
+    wfhDenied: String(detail.breakdown.wfh.denied),
+    wfhPending: String(detail.breakdown.wfh.pending),
+    leaveApproved: String(detail.breakdown.leave.approved),
+    leaveDenied: String(detail.breakdown.leave.denied),
+    leavePending: String(detail.breakdown.leave.pending),
+    missing: String(detail.breakdown.missing),
+    onTime: String(detail.breakdown.onTime),
+    lateSubmission: String(detail.breakdown.lateSubmission),
+    lateArrival: String(detail.breakdown.lateArrival),
+  }
+}
+
+function parseDraftInt(value: string): number | null {
+  const trimmed = value.trim()
+  if (trimmed === "") return 0
+  if (!/^\d+$/.test(trimmed)) return null
+  return Number(trimmed)
+}
+
+function CountField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: string
+  onChange: (next: string) => void
+}) {
+  return (
+    <label className="space-y-1">
+      <span className="text-[11px] text-muted-foreground">{label}</span>
+      <Input
+        type="number"
+        min={0}
+        step={1}
+        inputMode="numeric"
+        className="h-9 tabular-nums"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </label>
   )
 }
 
@@ -325,8 +385,9 @@ export default function AttendancePage() {
   const [detailOpen, setDetailOpen] = useState(false)
   const [detail, setDetail] = useState<EtaUserDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
-  const [resettingCounts, setResettingCounts] = useState(false)
-  const [resetConfirmOpen, setResetConfirmOpen] = useState(false)
+  const [savingCounts, setSavingCounts] = useState(false)
+  const [editCountsOpen, setEditCountsOpen] = useState(false)
+  const [countDraft, setCountDraft] = useState<CountDraft | null>(null)
 
   const summary = data?.summary ?? EMPTY_SUMMARY
   const entries = data?.entries ?? []
@@ -417,20 +478,53 @@ export default function AttendancePage() {
     }
   }
 
-  const handleResetCounts = async () => {
-    if (!detail?.stats.slackUserId) return
-    setResettingCounts(true)
+  const openEditCounts = () => {
+    if (!detail) return
+    setCountDraft(draftFromDetail(detail))
+    setEditCountsOpen(true)
+  }
+
+  const handleSaveCounts = async () => {
+    if (!detail?.stats.slackUserId || !countDraft) return
+    const parsed = {
+      wfhApproved: parseDraftInt(countDraft.wfhApproved),
+      wfhDenied: parseDraftInt(countDraft.wfhDenied),
+      wfhPending: parseDraftInt(countDraft.wfhPending),
+      leaveApproved: parseDraftInt(countDraft.leaveApproved),
+      leaveDenied: parseDraftInt(countDraft.leaveDenied),
+      leavePending: parseDraftInt(countDraft.leavePending),
+      missing: parseDraftInt(countDraft.missing),
+      onTime: parseDraftInt(countDraft.onTime),
+      lateSubmission: parseDraftInt(countDraft.lateSubmission),
+      lateArrival: parseDraftInt(countDraft.lateArrival),
+    }
+    if (Object.values(parsed).some((v) => v == null)) {
+      toast.error("Counters must be whole numbers ≥ 0")
+      return
+    }
+    setSavingCounts(true)
     try {
-      await etaApi.resetCounts(detail.stats.slackUserId)
-      toast.success("Counters reset — history kept")
-      setResetConfirmOpen(false)
+      await etaApi.setCounts(detail.stats.slackUserId, {
+        wfhApproved: parsed.wfhApproved!,
+        wfhDenied: parsed.wfhDenied!,
+        wfhPending: parsed.wfhPending!,
+        leaveApproved: parsed.leaveApproved!,
+        leaveDenied: parsed.leaveDenied!,
+        leavePending: parsed.leavePending!,
+        missing: parsed.missing!,
+        onTime: parsed.onTime!,
+        lateSubmission: parsed.lateSubmission!,
+        lateArrival: parsed.lateArrival!,
+      })
+      toast.success("Counters updated — history kept")
+      setEditCountsOpen(false)
       const refreshed = await etaApi.getUserDetail(detail.stats.slackUserId, { limit: 120 })
       setDetail(refreshed)
       await fetchList(date, filter)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to reset counters")
+      toast.error(err instanceof Error ? err.message : "Failed to update counters")
     } finally {
-      setResettingCounts(false)
+      setSavingCounts(false)
     }
   }
 
@@ -784,7 +878,8 @@ export default function AttendancePage() {
           if (!open) {
             setDetailOpen(false)
             setDetail(null)
-            setResetConfirmOpen(false)
+            setEditCountsOpen(false)
+            setCountDraft(null)
           }
         }}
       >
@@ -819,11 +914,11 @@ export default function AttendancePage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setResetConfirmOpen(true)}
-                  disabled={resettingCounts}
+                  onClick={openEditCounts}
+                  disabled={savingCounts}
                 >
-                  <RotateCcw className="h-4 w-4" />
-                  Reset counters
+                  <Pencil className="h-4 w-4" />
+                  Edit counters
                 </Button>
               </div>
 
@@ -876,27 +971,101 @@ export default function AttendancePage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={resetConfirmOpen} onOpenChange={setResetConfirmOpen}>
-        <DialogContent>
+      <Dialog
+        open={editCountsOpen}
+        onOpenChange={(open) => {
+          setEditCountsOpen(open)
+          if (!open) setCountDraft(null)
+        }}
+      >
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Reset counters?</DialogTitle>
+            <DialogTitle>Edit counters</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            This zeros WFH / leave / missing / late counters for{" "}
-            {detail?.stats.userName || "this person"} from tomorrow onward. Full history stays in
-            the lists below — only the rolling numbers reset.
+            Set rolling numbers for {detail?.stats.userName || "this person"} to any value. History
+            lists stay unchanged; new attendance after today still adds on.
           </p>
+          {countDraft && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium">WFH</h4>
+                <div className="grid grid-cols-3 gap-2">
+                  <CountField
+                    label="Approved"
+                    value={countDraft.wfhApproved}
+                    onChange={(v) => setCountDraft((d) => (d ? { ...d, wfhApproved: v } : d))}
+                  />
+                  <CountField
+                    label="Rejected"
+                    value={countDraft.wfhDenied}
+                    onChange={(v) => setCountDraft((d) => (d ? { ...d, wfhDenied: v } : d))}
+                  />
+                  <CountField
+                    label="Pending"
+                    value={countDraft.wfhPending}
+                    onChange={(v) => setCountDraft((d) => (d ? { ...d, wfhPending: v } : d))}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium">Leave</h4>
+                <div className="grid grid-cols-3 gap-2">
+                  <CountField
+                    label="Approved"
+                    value={countDraft.leaveApproved}
+                    onChange={(v) => setCountDraft((d) => (d ? { ...d, leaveApproved: v } : d))}
+                  />
+                  <CountField
+                    label="Rejected"
+                    value={countDraft.leaveDenied}
+                    onChange={(v) => setCountDraft((d) => (d ? { ...d, leaveDenied: v } : d))}
+                  />
+                  <CountField
+                    label="Pending"
+                    value={countDraft.leavePending}
+                    onChange={(v) => setCountDraft((d) => (d ? { ...d, leavePending: v } : d))}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium">Other</h4>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <CountField
+                    label="Missing"
+                    value={countDraft.missing}
+                    onChange={(v) => setCountDraft((d) => (d ? { ...d, missing: v } : d))}
+                  />
+                  <CountField
+                    label="On time"
+                    value={countDraft.onTime}
+                    onChange={(v) => setCountDraft((d) => (d ? { ...d, onTime: v } : d))}
+                  />
+                  <CountField
+                    label="Late submit"
+                    value={countDraft.lateSubmission}
+                    onChange={(v) => setCountDraft((d) => (d ? { ...d, lateSubmission: v } : d))}
+                  />
+                  <CountField
+                    label="Late arrival"
+                    value={countDraft.lateArrival}
+                    onChange={(v) => setCountDraft((d) => (d ? { ...d, lateArrival: v } : d))}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setResetConfirmOpen(false)}
-              disabled={resettingCounts}
+              onClick={() => setEditCountsOpen(false)}
+              disabled={savingCounts}
             >
               Cancel
             </Button>
-            <Button onClick={() => void handleResetCounts()} disabled={resettingCounts}>
-              {resettingCounts ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
-              Reset counters
+            <Button onClick={() => void handleSaveCounts()} disabled={savingCounts || !countDraft}>
+              {savingCounts ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
+              Save counters
             </Button>
           </DialogFooter>
         </DialogContent>

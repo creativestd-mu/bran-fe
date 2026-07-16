@@ -737,6 +737,25 @@ export const etaApi = {
     api.post<import("@/types").EtaPersonStats>(
       `/attendance/stats/${encodeURIComponent(slackUserId)}/reset-counts`
     ),
+  setCounts: (
+    slackUserId: string,
+    body: {
+      wfhApproved: number
+      wfhDenied: number
+      wfhPending?: number
+      leaveApproved: number
+      leaveDenied: number
+      leavePending?: number
+      missing: number
+      onTime: number
+      lateSubmission: number
+      lateArrival: number
+    }
+  ) =>
+    api.post<import("@/types").EtaPersonStats>(
+      `/attendance/stats/${encodeURIComponent(slackUserId)}/set-counts`,
+      body
+    ),
 }
 
 /** Escalation tracker — /en/v1/attendance/escalations/* ≡ /api/eta/escalations/* */
