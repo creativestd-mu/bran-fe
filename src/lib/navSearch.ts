@@ -17,6 +17,7 @@ import {
   Lightbulb,
   ClipboardList,
   Clock,
+  TriangleAlert,
   Mic,
   Video,
   Orbit,
@@ -84,6 +85,18 @@ export const NAV_SEARCH_INDEX: NavSearchItem[] = [
       "attendance", "eta", "wfh", "work from home", "leave", "comp off",
       "compoff", "office", "missing", "reminder", "slack", "day off",
       "cs-day-off", "late", "on time", "check in", "pod", "production pod",
+    ],
+  },
+  {
+    label: "Escalations",
+    path: "/escalations",
+    description: "Slack escalation tracker — status, context, AI summary",
+    icon: TriangleAlert,
+    roles: ["admin", "chief_of_staff"],
+    keywords: [
+      "escalation", "escalations", "escalate", "slack", "blocker",
+      "escalation-matrix", "urgent", "waiting", "customer issue", "incident",
+      "status", "ai summary",
     ],
   },
   {

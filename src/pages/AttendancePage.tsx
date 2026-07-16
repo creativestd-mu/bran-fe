@@ -4,6 +4,7 @@ import { etaApi } from "@/lib/api"
 import {
   canManageEta,
   type EtaBadge,
+  type EtaEntry,
   type EtaFilter,
   type EtaListData,
   type EtaMember,
@@ -105,10 +106,18 @@ function readStoredFilter(): EtaFilter {
 function monthCountsLabel(counts: EtaMonthCounts | null | undefined): string {
   const c = counts ?? EMPTY_MONTH_COUNTS
   const parts: string[] = []
-  if (c.leave > 0) parts.push(`Leave ${c.leave}`)
-  if (c.wfh > 0) parts.push(`WFH ${c.wfh}`)
   if (c.missing > 0) parts.push(`Missing ${c.missing}`)
+  if (c.wfh > 0) parts.push(`WFH denied ${c.wfh}`)
+  if (c.leave > 0) parts.push(`Leave denied ${c.leave}`)
   return parts.length > 0 ? parts.join(" · ") : "—"
+}
+
+function isRemindableEntry(entry: EtaEntry): boolean {
+  if (entry.reminderSentAt) return false
+  if (entry.status === "missing") return true
+  if (entry.recordType === "wfh" && entry.wfhApprovalState === "pending") return true
+  if (entry.recordType === "leave" && entry.leaveApprovalState === "pending") return true
+  return false
 }
 
 const BADGE_CONFIG: Record<
@@ -154,6 +163,21 @@ const BADGE_CONFIG: Record<
     label: "Leave",
     className:
       "border-purple-700/20 bg-purple-500/15 text-purple-800 dark:border-transparent dark:bg-purple-600/20 dark:text-purple-400",
+  },
+  leave_pending: {
+    label: "Leave pending",
+    className:
+      "border-amber-700/25 bg-amber-500/20 text-amber-800 dark:border-transparent dark:bg-amber-600/20 dark:text-amber-400",
+  },
+  leave_approved: {
+    label: "Leave approved",
+    className:
+      "border-emerald-700/20 bg-emerald-500/15 text-emerald-800 dark:border-transparent dark:bg-emerald-600/20 dark:text-emerald-400",
+  },
+  leave_denied: {
+    label: "Leave denied",
+    className:
+      "border-red-700/25 bg-red-500/15 text-red-800 dark:border-transparent dark:bg-red-600/20 dark:text-red-400",
   },
   comp_off: {
     label: "Comp Off",
@@ -457,7 +481,7 @@ export default function AttendancePage() {
                   <span>Submitted: {formatIstDateTime(entry.submittedAt)}</span>
                   <span>Reminder: {entry.reminderSentAt ? formatIstDateTime(entry.reminderSentAt) : "—"}</span>
                 </div>
-                {isAdmin && entry.status === "missing" && !entry.reminderSentAt && (
+                {isAdmin && isRemindableEntry(entry) && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -511,7 +535,7 @@ export default function AttendancePage() {
                     </TableCell>
                     {isAdmin && (
                       <TableCell>
-                        {entry.status === "missing" && !entry.reminderSentAt ? (
+                        {isRemindableEntry(entry) ? (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -543,8 +567,9 @@ export default function AttendancePage() {
             <DialogTitle>Send reminders?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            This will DM people still missing attendance for {formatIstDateLabel(date)}. People who
-            already received a reminder or are on the production pod are skipped.
+            This will DM people still missing attendance or waiting on manager approval (WFH/leave)
+            for {formatIstDateLabel(date)}. People who already received a reminder or are on the
+            production pod are skipped.
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRemindConfirmOpen(false)} disabled={reminding}>

@@ -844,6 +844,9 @@ export type EtaBadge =
   | "wfh_approved"
   | "wfh_denied"
   | "leave"
+  | "leave_pending"
+  | "leave_approved"
+  | "leave_denied"
   | "comp_off"
   | "office"
   | "missing"
@@ -889,6 +892,10 @@ export interface EtaEntry {
   wfhApprovedAt?: string | null
   wfhApprovedBySlackUserId?: string | null
   wfhApprovalNote?: string | null
+  leaveApprovalState?: "pending" | "approved" | "denied" | null
+  leaveApprovedAt?: string | null
+  leaveApprovedBySlackUserId?: string | null
+  leaveApprovalNote?: string | null
   createdAt: string
   updatedAt: string
   badge: EtaBadge
@@ -932,6 +939,83 @@ export interface EtaMember {
 }
 
 export function canManageEta(user: User | null): boolean {
+  return hasRole(user, "admin", "chief_of_staff")
+}
+
+// ---------- Escalation tracker ----------
+
+export type EscalationStatus = "open" | "in_progress" | "waiting" | "resolved" | "closed"
+export type EscalationPriority = "low" | "medium" | "high" | "urgent"
+
+export interface EscalationReporter {
+  slackUserId: string | null
+  name: string | null
+  email: string | null
+}
+
+export interface EscalationAi {
+  summary: string | null
+  blockers: string[]
+  analyzedAt: string | null
+}
+
+export interface EscalationUpdate {
+  id: string
+  body: string
+  authorName: string | null
+  authorEmail: string | null
+  slackUserId: string | null
+  slackMessageTs: string
+  inferredStatus: string | null
+  isManual: boolean
+  createdAt: string
+}
+
+export interface EscalationItem {
+  id: string
+  title: string
+  problemContext: string
+  latestContext: string
+  status: EscalationStatus
+  priority: EscalationPriority
+  reporter: EscalationReporter
+  slack: { channelId: string; messageTs: string }
+  latestUpdate: {
+    body: string
+    authorName: string | null
+    inferredStatus: string | null
+    at: string
+  } | null
+  latestUpdateAt: string | null
+  resolvedAt: string | null
+  ai: EscalationAi
+  createdAt: string
+  updatedAt: string
+  updates?: EscalationUpdate[]
+}
+
+export interface EscalationSummary {
+  open: number
+  inProgress: number
+  waiting: number
+  resolved: number
+  closed: number
+}
+
+export interface EscalationListData {
+  summary: EscalationSummary
+  total: number
+  items: EscalationItem[]
+}
+
+export interface EscalationSyncResult {
+  processed: number
+  escalations: number
+  updates: number
+  errors: string[]
+}
+
+export function canManageEscalations(user: User | null): boolean {
   return hasRole(user, "admin", "chief_of_staff")
 }
 

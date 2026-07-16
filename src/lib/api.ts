@@ -730,6 +730,44 @@ export const etaApi = {
     ),
 }
 
+/** Escalation tracker — /en/v1/attendance/escalations/* ≡ /api/eta/escalations/* */
+export const escalationsApi = {
+  list: (params?: {
+    status?: import("@/types").EscalationStatus
+    priority?: import("@/types").EscalationPriority
+    activeOnly?: boolean
+    search?: string
+    take?: number
+    skip?: number
+  }) =>
+    api.get<import("@/types").EscalationListData>(
+      "/attendance/escalations",
+      {
+        ...params,
+        activeOnly:
+          params?.activeOnly === undefined ? undefined : params.activeOnly ? "true" : "false",
+      } as Record<string, unknown>
+    ),
+  get: (id: string) =>
+    api.get<import("@/types").EscalationItem>(`/attendance/escalations/${encodeURIComponent(id)}`),
+  sync: (data?: { days?: number }) =>
+    api.post<import("@/types").EscalationSyncResult>("/attendance/escalations/sync", data ?? {}),
+  analyze: (id: string) =>
+    api.post<import("@/types").EscalationItem>(
+      `/attendance/escalations/${encodeURIComponent(id)}/analyze`
+    ),
+  updateStatus: (id: string, data: { status: import("@/types").EscalationStatus; note?: string }) =>
+    api.patch<import("@/types").EscalationItem>(
+      `/attendance/escalations/${encodeURIComponent(id)}/status`,
+      data
+    ),
+  addNote: (id: string, body: string) =>
+    api.post<import("@/types").EscalationItem>(
+      `/attendance/escalations/${encodeURIComponent(id)}/notes`,
+      { body }
+    ),
+}
+
 /** Google Meet / Recall.ai meetings — /en/v1/meetings/* */
 export const meetingsApi = {
   calendarStatus: () =>

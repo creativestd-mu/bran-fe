@@ -31,6 +31,7 @@ import VisionsPage from "@/pages/VisionsPage"
 import KPIsPage from "@/pages/KPIsPage"
 import InventoryPage from "@/pages/InventoryPage"
 import AttendancePage from "@/pages/AttendancePage"
+import EscalationsPage from "@/pages/EscalationsPage"
 import MeetingsPage from "@/pages/MeetingsPage"
 import BrainMapPage from "@/pages/BrainMapPage"
 
@@ -98,6 +99,14 @@ function App() {
           element={
             <ProtectedRoute roles={["admin", "chief_of_staff"]}>
               <AttendancePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/escalations"
+          element={
+            <ProtectedRoute roles={["admin", "chief_of_staff"]}>
+              <EscalationsPage />
             </ProtectedRoute>
           }
         />
