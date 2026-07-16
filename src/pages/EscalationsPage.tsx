@@ -138,10 +138,13 @@ function formatIstDateTime(iso: string | null | undefined): string {
   }).format(new Date(iso))
 }
 
+const BADGE_BASE =
+  "inline-flex h-6 shrink-0 items-center whitespace-nowrap rounded-full px-2.5 py-0 text-xs font-medium leading-none"
+
 function StatusBadge({ status }: { status: EscalationStatus }) {
   const config = STATUS_STYLE[status] ?? STATUS_STYLE.open
   return (
-    <Badge variant="outline" className={cn("capitalize", config.className)}>
+    <Badge variant="outline" className={cn(BADGE_BASE, config.className)}>
       {config.label}
     </Badge>
   )
@@ -150,7 +153,7 @@ function StatusBadge({ status }: { status: EscalationStatus }) {
 function PriorityBadge({ priority }: { priority: EscalationPriority }) {
   const config = PRIORITY_STYLE[priority] ?? PRIORITY_STYLE.medium
   return (
-    <Badge variant="outline" className={cn(config.className)}>
+    <Badge variant="outline" className={cn(BADGE_BASE, config.className)}>
       {config.label}
     </Badge>
   )
@@ -377,11 +380,11 @@ export default function EscalationsPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Escalation</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Priority</TableHead>
+              <TableHead className="w-[120px]">Status</TableHead>
+              <TableHead className="w-[100px]">Priority</TableHead>
               <TableHead>Reporter</TableHead>
               <TableHead>Latest context</TableHead>
-              <TableHead>Updated</TableHead>
+              <TableHead className="w-[140px]">Created</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -412,10 +415,10 @@ export default function EscalationsPage() {
                   <TableCell className="max-w-[220px]">
                     <div className="truncate font-medium">{item.title}</div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="whitespace-nowrap">
                     <StatusBadge status={item.status} />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="whitespace-nowrap">
                     <PriorityBadge priority={item.priority} />
                   </TableCell>
                   <TableCell className="whitespace-nowrap">
@@ -427,7 +430,7 @@ export default function EscalationsPage() {
                     </div>
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                    {formatIstDateTime(item.latestUpdateAt ?? item.updatedAt)}
+                    {formatIstDateTime(item.createdAt)}
                   </TableCell>
                 </TableRow>
               ))}
