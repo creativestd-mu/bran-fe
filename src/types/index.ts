@@ -904,7 +904,15 @@ export interface EtaEntry {
 
 export interface EtaMonthCounts {
   leave: number
+  leaveApproved?: number
+  leaveDenied?: number
+  leavePending?: number
+  leaveUnapproved?: number
   wfh: number
+  wfhApproved?: number
+  wfhDenied?: number
+  wfhPending?: number
+  wfhUnapproved?: number
   missing: number
 }
 

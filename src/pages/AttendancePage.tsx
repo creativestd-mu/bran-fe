@@ -108,8 +108,32 @@ function monthCountsLabel(counts: EtaMonthCounts | null | undefined): string {
   const c = counts ?? EMPTY_MONTH_COUNTS
   const parts: string[] = []
   if (c.missing > 0) parts.push(`Missing ${c.missing}`)
-  if (c.wfh > 0) parts.push(`WFH denied ${c.wfh}`)
-  if (c.leave > 0) parts.push(`Leave denied ${c.leave}`)
+
+  const wfhApproved = c.wfhApproved ?? 0
+  const wfhDenied = c.wfhDenied ?? 0
+  const wfhPending = c.wfhPending ?? 0
+  const hasWfhBreakdown = c.wfhApproved != null || c.wfhDenied != null || c.wfhPending != null
+  if (hasWfhBreakdown) {
+    if (wfhApproved > 0) parts.push(`WFH approved ${wfhApproved}`)
+    if (wfhDenied > 0) parts.push(`WFH denied ${wfhDenied}`)
+    if (wfhPending > 0) parts.push(`WFH pending ${wfhPending}`)
+  } else if (c.wfh > 0) {
+    parts.push(`WFH ${c.wfh}`)
+  }
+
+  const leaveApproved = c.leaveApproved ?? 0
+  const leaveDenied = c.leaveDenied ?? 0
+  const leavePending = c.leavePending ?? 0
+  const hasLeaveBreakdown =
+    c.leaveApproved != null || c.leaveDenied != null || c.leavePending != null
+  if (hasLeaveBreakdown) {
+    if (leaveApproved > 0) parts.push(`Leave approved ${leaveApproved}`)
+    if (leaveDenied > 0) parts.push(`Leave denied ${leaveDenied}`)
+    if (leavePending > 0) parts.push(`Leave pending ${leavePending}`)
+  } else if (c.leave > 0) {
+    parts.push(`Leave ${c.leave}`)
+  }
+
   return parts.length > 0 ? parts.join(" · ") : "—"
 }
 
