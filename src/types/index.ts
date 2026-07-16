@@ -953,8 +953,16 @@ export interface EscalationReporter {
   email: string | null
 }
 
+export interface EscalationAttachment {
+  id: string
+  name: string
+  mimetype: string
+  permalink: string | null
+}
+
 export interface EscalationAi {
   summary: string | null
+  issueDescription: string | null
   blockers: string[]
   analyzedAt: string | null
 }
@@ -968,6 +976,7 @@ export interface EscalationUpdate {
   slackMessageTs: string
   inferredStatus: string | null
   isManual: boolean
+  attachments?: EscalationAttachment[]
   createdAt: string
 }
 
@@ -988,6 +997,7 @@ export interface EscalationItem {
   } | null
   latestUpdateAt: string | null
   resolvedAt: string | null
+  attachments?: EscalationAttachment[]
   ai: EscalationAi
   createdAt: string
   updatedAt: string

@@ -60,22 +60,30 @@ const STATUS_STYLE: Record<
   EscalationStatus,
   { label: string; className: string }
 > = {
-  open: { label: "Open", className: "bg-sky-500/15 text-sky-700 border-sky-500/30" },
+  open: {
+    label: "Open",
+    className:
+      "border-sky-700/20 bg-sky-500/15 text-sky-800 dark:border-transparent dark:bg-sky-600/25 dark:text-sky-300",
+  },
   in_progress: {
     label: "In progress",
-    className: "bg-amber-500/15 text-amber-700 border-amber-500/30",
+    className:
+      "border-amber-700/25 bg-amber-500/20 text-amber-800 dark:border-transparent dark:bg-amber-600/25 dark:text-amber-300",
   },
   waiting: {
     label: "Waiting",
-    className: "bg-violet-500/15 text-violet-700 border-violet-500/30",
+    className:
+      "border-violet-700/20 bg-violet-500/15 text-violet-800 dark:border-transparent dark:bg-violet-600/30 dark:text-violet-300",
   },
   resolved: {
     label: "Resolved",
-    className: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30",
+    className:
+      "border-emerald-700/20 bg-emerald-500/15 text-emerald-800 dark:border-transparent dark:bg-emerald-600/25 dark:text-emerald-300",
   },
   closed: {
     label: "Closed",
-    className: "bg-muted text-muted-foreground border-border",
+    className:
+      "border-slate-700/20 bg-slate-500/15 text-slate-800 dark:border-transparent dark:bg-slate-600/25 dark:text-slate-300",
   },
 }
 
@@ -83,10 +91,26 @@ const PRIORITY_STYLE: Record<
   EscalationPriority,
   { label: string; className: string }
 > = {
-  low: { label: "Low", className: "bg-muted text-muted-foreground" },
-  medium: { label: "Medium", className: "bg-sky-500/10 text-sky-700" },
-  high: { label: "High", className: "bg-orange-500/15 text-orange-700" },
-  urgent: { label: "Urgent", className: "bg-red-500/15 text-red-700" },
+  low: {
+    label: "Low",
+    className:
+      "border-slate-700/20 bg-slate-500/15 text-slate-800 dark:border-transparent dark:bg-slate-600/25 dark:text-slate-300",
+  },
+  medium: {
+    label: "Medium",
+    className:
+      "border-cyan-700/20 bg-cyan-500/15 text-cyan-800 dark:border-transparent dark:bg-cyan-600/25 dark:text-cyan-300",
+  },
+  high: {
+    label: "High",
+    className:
+      "border-orange-700/25 bg-orange-500/15 text-orange-800 dark:border-transparent dark:bg-orange-600/25 dark:text-orange-300",
+  },
+  urgent: {
+    label: "Urgent",
+    className:
+      "border-red-700/25 bg-red-500/15 text-red-800 dark:border-transparent dark:bg-red-600/25 dark:text-red-300",
+  },
 }
 
 const SUMMARY_CHIPS: Array<{
@@ -126,7 +150,7 @@ function StatusBadge({ status }: { status: EscalationStatus }) {
 function PriorityBadge({ priority }: { priority: EscalationPriority }) {
   const config = PRIORITY_STYLE[priority] ?? PRIORITY_STYLE.medium
   return (
-    <Badge variant="secondary" className={cn(config.className)}>
+    <Badge variant="outline" className={cn(config.className)}>
       {config.label}
     </Badge>
   )
@@ -399,7 +423,7 @@ export default function EscalationsPage() {
                   </TableCell>
                   <TableCell className="max-w-[320px]">
                     <div className="line-clamp-2 text-sm text-muted-foreground">
-                      {item.ai.summary || item.latestContext}
+                      {item.ai.issueDescription || item.ai.summary || item.latestContext}
                     </div>
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
@@ -438,8 +462,36 @@ export default function EscalationsPage() {
               </div>
 
               <section className="space-y-1">
+                <h3 className="text-sm font-medium">Issue description</h3>
+                <p className="rounded-lg border bg-muted/30 p-3 text-sm leading-relaxed whitespace-pre-wrap">
+                  {detail.ai.issueDescription || detail.problemContext}
+                </p>
+                {(detail.attachments?.length ?? 0) > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {detail.attachments!.map((file) =>
+                      file.permalink ? (
+                        <a
+                          key={file.id}
+                          href={file.permalink}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-md border px-2 py-1 text-xs text-primary hover:underline"
+                        >
+                          {file.name || "Attachment"}
+                        </a>
+                      ) : (
+                        <Badge key={file.id} variant="outline">
+                          {file.name || "Attachment"}
+                        </Badge>
+                      )
+                    )}
+                  </div>
+                )}
+              </section>
+
+              <section className="space-y-1">
                 <h3 className="text-sm font-medium">Where it stands</h3>
-                <p className="rounded-lg border bg-muted/30 p-3 text-sm leading-relaxed">
+                <p className="rounded-lg border p-3 text-sm leading-relaxed">
                   {detail.ai.summary || detail.latestContext}
                 </p>
                 {detail.ai.blockers.length > 0 && (
@@ -456,12 +508,16 @@ export default function EscalationsPage() {
                 )}
               </section>
 
-              <section className="space-y-1">
-                <h3 className="text-sm font-medium">Original problem</h3>
-                <p className="whitespace-pre-wrap rounded-lg border p-3 text-sm text-muted-foreground">
-                  {detail.problemContext}
-                </p>
-              </section>
+              {detail.ai.issueDescription &&
+                detail.problemContext &&
+                detail.ai.issueDescription !== detail.problemContext && (
+                  <section className="space-y-1">
+                    <h3 className="text-sm font-medium">Original Slack message</h3>
+                    <p className="whitespace-pre-wrap rounded-lg border p-3 text-sm text-muted-foreground">
+                      {detail.problemContext}
+                    </p>
+                  </section>
+                )}
 
               <section className="space-y-2">
                 <h3 className="text-sm font-medium">Timeline</h3>
@@ -484,6 +540,27 @@ export default function EscalationsPage() {
                         )}
                       </div>
                       <p className="whitespace-pre-wrap text-sm">{update.body}</p>
+                      {(update.attachments?.length ?? 0) > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {update.attachments!.map((file) =>
+                            file.permalink ? (
+                              <a
+                                key={file.id}
+                                href={file.permalink}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-xs text-primary hover:underline"
+                              >
+                                {file.name || "Image"}
+                              </a>
+                            ) : (
+                              <span key={file.id} className="text-xs text-muted-foreground">
+                                {file.name || "Image"}
+                              </span>
+                            )
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
