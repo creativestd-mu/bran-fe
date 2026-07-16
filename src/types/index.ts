@@ -942,6 +942,80 @@ export function canManageEta(user: User | null): boolean {
   return hasRole(user, "admin", "chief_of_staff")
 }
 
+export interface EtaApprovalBucket {
+  total: number
+  approved: number
+  denied: number
+  pending: number
+  unapproved: number
+}
+
+export interface EtaPersonStatsCounts {
+  wfh: number
+  leave: number
+  compOff: number
+  office: number
+  onTime: number
+  lateSubmission: number
+  lateArrival: number
+  missing: number
+  submitted: number
+}
+
+export interface EtaPersonStats {
+  id: string
+  slackUserId: string
+  userId: string | null
+  userEmail: string | null
+  userName: string | null
+  counts: EtaPersonStatsCounts
+  action: {
+    status: string
+    note: string | null
+    takenById: string | null
+    takenBy: { id: string; name: string; email: string } | null
+    takenAt: string | null
+  }
+  countsResetAt: string | null
+  lastEntryDate: string | null
+  lastComputedAt: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface EtaUserDetail {
+  stats: EtaPersonStats
+  breakdown: {
+    wfh: EtaApprovalBucket
+    leave: EtaApprovalBucket
+    office: number
+    onTime: number
+    lateSubmission: number
+    lateArrival: number
+    missing: number
+    submitted: number
+    compOff: number
+  }
+  entries: EtaEntry[]
+  groups: {
+    wfh: {
+      approved: EtaEntry[]
+      denied: EtaEntry[]
+      pending: EtaEntry[]
+      unapproved: EtaEntry[]
+    }
+    leave: {
+      approved: EtaEntry[]
+      denied: EtaEntry[]
+      pending: EtaEntry[]
+      unapproved: EtaEntry[]
+    }
+    eta: EtaEntry[]
+    missing: EtaEntry[]
+    other: EtaEntry[]
+  }
+}
+
 // ---------- Escalation tracker ----------
 
 export type EscalationStatus = "open" | "in_progress" | "waiting" | "resolved" | "closed"

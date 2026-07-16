@@ -11,6 +11,7 @@ import {
   type EtaMonthCounts,
   type EtaPod,
   type EtaSummary,
+  type EtaUserDetail,
 } from "@/types"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -33,7 +34,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
-import { Bell, Loader2, RefreshCw, Search, Users } from "lucide-react"
+import { Bell, Loader2, RefreshCw, RotateCcw, Search, Users } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const EMPTY_SUMMARY: EtaSummary = {
@@ -110,6 +111,76 @@ function monthCountsLabel(counts: EtaMonthCounts | null | undefined): string {
   if (c.wfh > 0) parts.push(`WFH denied ${c.wfh}`)
   if (c.leave > 0) parts.push(`Leave denied ${c.leave}`)
   return parts.length > 0 ? parts.join(" · ") : "—"
+}
+
+function formatEntryDate(isoDate: string): string {
+  const [y, m, d] = isoDate.split("-").map(Number)
+  if (!y || !m || !d) return isoDate
+  return new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(Date.UTC(y, m - 1, d, 6, 0, 0)))
+}
+
+function StatChip({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string
+  value: number
+  tone?: "default" | "good" | "bad" | "warn"
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-lg border px-3 py-2",
+        tone === "good" &&
+          "border-emerald-700/20 bg-emerald-500/10 dark:border-transparent dark:bg-emerald-600/15",
+        tone === "bad" &&
+          "border-red-700/20 bg-red-500/10 dark:border-transparent dark:bg-red-600/15",
+        tone === "warn" &&
+          "border-amber-700/20 bg-amber-500/10 dark:border-transparent dark:bg-amber-600/15",
+        tone === "default" && "border-border/70 bg-card/55"
+      )}
+    >
+      <p className="text-[11px] text-muted-foreground">{label}</p>
+      <p className="text-lg font-semibold tabular-nums">{value}</p>
+    </div>
+  )
+}
+
+function HistoryList({
+  title,
+  items,
+}: {
+  title: string
+  items: EtaEntry[]
+}) {
+  if (items.length === 0) return null
+  return (
+    <div className="space-y-2">
+      <h4 className="text-xs font-medium text-muted-foreground">{title}</h4>
+      <div className="max-h-40 space-y-2 overflow-y-auto rounded-lg border p-2">
+        {items.map((entry) => (
+          <div
+            key={entry.id}
+            className="flex items-start justify-between gap-2 border-b border-border/50 pb-2 last:border-0 last:pb-0"
+          >
+            <div className="min-w-0">
+              <p className="text-sm font-medium">{formatEntryDate(entry.entryDate)}</p>
+              <p className="truncate text-xs text-muted-foreground">
+                {entry.rawMessage || entry.etaText || entry.recordType || "—"}
+              </p>
+            </div>
+            <EtaBadgePill badge={entry.badge} />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 function isRemindableEntry(entry: EtaEntry): boolean {
@@ -251,6 +322,12 @@ export default function AttendancePage() {
   const [membersQuery, setMembersQuery] = useState("")
   const [updatingPodId, setUpdatingPodId] = useState<string | null>(null)
 
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [detail, setDetail] = useState<EtaUserDetail | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [resettingCounts, setResettingCounts] = useState(false)
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false)
+
   const summary = data?.summary ?? EMPTY_SUMMARY
   const entries = data?.entries ?? []
 
@@ -321,6 +398,39 @@ export default function AttendancePage() {
       toast.error(err instanceof Error ? err.message : "Failed to send reminders")
     } finally {
       setReminding(false)
+    }
+  }
+
+  const openUserDetail = async (slackUserId: string) => {
+    if (!slackUserId || !isAdmin) return
+    setDetailOpen(true)
+    setDetailLoading(true)
+    setDetail(null)
+    try {
+      const res = await etaApi.getUserDetail(slackUserId, { limit: 120 })
+      setDetail(res)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to load person detail")
+      setDetailOpen(false)
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
+  const handleResetCounts = async () => {
+    if (!detail?.stats.slackUserId) return
+    setResettingCounts(true)
+    try {
+      await etaApi.resetCounts(detail.stats.slackUserId)
+      toast.success("Counters reset — history kept")
+      setResetConfirmOpen(false)
+      const refreshed = await etaApi.getUserDetail(detail.stats.slackUserId, { limit: 120 })
+      setDetail(refreshed)
+      await fetchList(date, filter)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to reset counters")
+    } finally {
+      setResettingCounts(false)
     }
   }
 
@@ -466,7 +576,13 @@ export default function AttendancePage() {
             {entries.map((entry) => (
               <div
                 key={entry.id}
-                className="rounded-xl border border-border/70 bg-card/60 p-3 space-y-2"
+                className={cn(
+                  "rounded-xl border border-border/70 bg-card/60 p-3 space-y-2",
+                  isAdmin && entry.slackUserId && "cursor-pointer hover:bg-card/80"
+                )}
+                onClick={() => {
+                  if (isAdmin && entry.slackUserId) void openUserDetail(entry.slackUserId)
+                }}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -487,7 +603,10 @@ export default function AttendancePage() {
                     size="sm"
                     className="h-8"
                     disabled={remindingSlackUserId === entry.slackUserId}
-                    onClick={() => handleRemindOne(entry)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      void handleRemindOne(entry)
+                    }}
                   >
                     {remindingSlackUserId === entry.slackUserId ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -517,7 +636,13 @@ export default function AttendancePage() {
               </TableHeader>
               <TableBody>
                 {entries.map((entry) => (
-                  <TableRow key={entry.id}>
+                  <TableRow
+                    key={entry.id}
+                    className={cn(isAdmin && entry.slackUserId && "cursor-pointer")}
+                    onClick={() => {
+                      if (isAdmin && entry.slackUserId) void openUserDetail(entry.slackUserId)
+                    }}
+                  >
                     <TableCell className="font-medium">{entry.userName}</TableCell>
                     <TableCell className="text-muted-foreground">{entry.userEmail}</TableCell>
                     <TableCell className="tabular-nums">{entry.etaText || "—"}</TableCell>
@@ -541,7 +666,10 @@ export default function AttendancePage() {
                             size="sm"
                             className="h-8 px-2"
                             disabled={remindingSlackUserId === entry.slackUserId}
-                            onClick={() => handleRemindOne(entry)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              void handleRemindOne(entry)
+                            }}
                             title={`Remind ${entry.userName}`}
                           >
                             {remindingSlackUserId === entry.slackUserId ? (
@@ -647,6 +775,130 @@ export default function AttendancePage() {
               ))}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={detailOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDetailOpen(false)
+            setDetail(null)
+            setResetConfirmOpen(false)
+          }
+        }}
+      >
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="pr-6 text-left">
+              {detailLoading
+                ? "Loading…"
+                : detail?.stats.userName || detail?.stats.userEmail || "Person detail"}
+            </DialogTitle>
+          </DialogHeader>
+
+          {detailLoading && (
+            <div className="space-y-3 py-2">
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-32 w-full" />
+            </div>
+          )}
+
+          {!detailLoading && detail && (
+            <div className="space-y-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm text-muted-foreground">{detail.stats.userEmail || "—"}</p>
+                  {detail.stats.countsResetAt && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Counters since {formatEntryDate(detail.stats.countsResetAt)}
+                    </p>
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setResetConfirmOpen(true)}
+                  disabled={resettingCounts}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Reset counters
+                </Button>
+              </div>
+
+              <section className="space-y-2">
+                <h3 className="text-sm font-medium">WFH</h3>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <StatChip label="Total" value={detail.breakdown.wfh.total} />
+                  <StatChip label="Approved" value={detail.breakdown.wfh.approved} tone="good" />
+                  <StatChip label="Rejected" value={detail.breakdown.wfh.denied} tone="bad" />
+                  <StatChip label="Pending" value={detail.breakdown.wfh.pending} tone="warn" />
+                </div>
+              </section>
+
+              <section className="space-y-2">
+                <h3 className="text-sm font-medium">Leave</h3>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <StatChip label="Total" value={detail.breakdown.leave.total} />
+                  <StatChip label="Approved" value={detail.breakdown.leave.approved} tone="good" />
+                  <StatChip label="Rejected" value={detail.breakdown.leave.denied} tone="bad" />
+                  <StatChip label="Pending" value={detail.breakdown.leave.pending} tone="warn" />
+                </div>
+              </section>
+
+              <section className="space-y-2">
+                <h3 className="text-sm font-medium">Other</h3>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <StatChip label="Missing" value={detail.breakdown.missing} />
+                  <StatChip label="On time" value={detail.breakdown.onTime} tone="good" />
+                  <StatChip label="Late submit" value={detail.breakdown.lateSubmission} tone="warn" />
+                  <StatChip label="Late arrival" value={detail.breakdown.lateArrival} tone="bad" />
+                </div>
+              </section>
+
+              <div className="space-y-4">
+                <HistoryList title="WFH approved" items={detail.groups.wfh.approved} />
+                <HistoryList title="WFH rejected" items={detail.groups.wfh.denied} />
+                <HistoryList title="WFH pending" items={detail.groups.wfh.pending} />
+                <HistoryList title="Leave approved" items={detail.groups.leave.approved} />
+                <HistoryList title="Leave rejected" items={detail.groups.leave.denied} />
+                <HistoryList title="Leave pending" items={detail.groups.leave.pending} />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDetailOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={resetConfirmOpen} onOpenChange={setResetConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset counters?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This zeros WFH / leave / missing / late counters for{" "}
+            {detail?.stats.userName || "this person"} from tomorrow onward. Full history stays in
+            the lists below — only the rolling numbers reset.
+          </p>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setResetConfirmOpen(false)}
+              disabled={resettingCounts}
+            >
+              Cancel
+            </Button>
+            <Button onClick={() => void handleResetCounts()} disabled={resettingCounts}>
+              {resettingCounts ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+              Reset counters
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -728,6 +728,15 @@ export const etaApi = {
       `/attendance/members/${encodeURIComponent(slackUserId)}/pod`,
       { pod }
     ),
+  getUserDetail: (slackUserId: string, params?: { from?: string; to?: string; limit?: number }) =>
+    api.get<import("@/types").EtaUserDetail>(
+      `/attendance/stats/${encodeURIComponent(slackUserId)}/detail`,
+      params as Record<string, unknown>
+    ),
+  resetCounts: (slackUserId: string) =>
+    api.post<import("@/types").EtaPersonStats>(
+      `/attendance/stats/${encodeURIComponent(slackUserId)}/reset-counts`
+    ),
 }
 
 /** Escalation tracker — /en/v1/attendance/escalations/* ≡ /api/eta/escalations/* */
