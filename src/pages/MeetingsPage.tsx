@@ -422,7 +422,7 @@ export default function MeetingsPage() {
       <div className="space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg font-semibold">Your meetings</h2>
-          <div className="flex flex-wrap gap-2">
+          <div className="filter-chip-row sm:flex-wrap sm:overflow-visible">
             <Button
               size="sm"
               variant={statusFilter === "all" ? "default" : "outline"}
@@ -452,7 +452,7 @@ export default function MeetingsPage() {
           </p>
         ) : (
           <>
-            <div className="space-y-3 md:hidden">
+            <div className="data-card-list lg:hidden">
               {meetings.map((meeting) => (
                 <div
                   key={meeting.id}
@@ -493,8 +493,8 @@ export default function MeetingsPage() {
               ))}
             </div>
 
-            <div className="hidden overflow-x-auto rounded-lg border border-border/70 md:block">
-              <Table>
+            <div className="data-table-shell hidden lg:block rounded-lg border border-border/70">
+              <Table className="min-w-[720px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Title</TableHead>

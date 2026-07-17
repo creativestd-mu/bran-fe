@@ -236,15 +236,15 @@ export default function EscalationsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="font-brand text-3xl tracking-wide">Escalations</h1>
+    <div className="min-w-0 space-y-6">
+      <div className="page-header">
+        <div className="min-w-0">
+          <h1 className="font-brand text-2xl tracking-wide sm:text-3xl">Escalations</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Slack escalation-matrix tracker
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="page-toolbar">
           <Button variant="outline" size="sm" onClick={() => void fetchList()} disabled={loading}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             Refresh
@@ -258,7 +258,7 @@ export default function EscalationsPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="filter-chip-row">
         {FILTER_CHIPS.map((chip) => {
           const active =
             chip.key === "total" ? statusFilter === null : statusFilter === chip.status
@@ -281,7 +281,7 @@ export default function EscalationsPage() {
         })}
       </div>
 
-      <div className="relative max-w-xl">
+      <div className="relative min-w-0 w-full max-w-xl">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           className="pl-9"
@@ -297,77 +297,146 @@ export default function EscalationsPage() {
         </div>
       )}
 
-      <div className="rounded-xl border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Escalation</TableHead>
-              <TableHead>Reporter</TableHead>
-              <TableHead className="w-[140px]">Raised on</TableHead>
-              {canManage && <TableHead className="w-[100px]" />}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading &&
-              Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>
-                  {Array.from({ length: canManage ? 4 : 3 }).map((__, j) => (
-                    <TableCell key={j}>
-                      <Skeleton className="h-4 w-full" />
-                    </TableCell>
+      {loading ? (
+        <>
+          <div className="data-card-list lg:hidden">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-20 w-full rounded-xl" />
+            ))}
+          </div>
+          <div className="data-table-shell hidden lg:block">
+            <div className="rounded-xl border bg-card">
+              <Table className="min-w-[640px]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Escalation</TableHead>
+                    <TableHead>Reporter</TableHead>
+                    <TableHead className="w-[140px]">Raised on</TableHead>
+                    {canManage && <TableHead className="w-[100px]" />}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                      {Array.from({ length: canManage ? 4 : 3 }).map((__, j) => (
+                        <TableCell key={j}>
+                          <Skeleton className="h-4 w-full" />
+                        </TableCell>
+                      ))}
+                    </TableRow>
                   ))}
-                </TableRow>
-              ))}
-            {!loading && items.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={canManage ? 4 : 3} className="py-10 text-center text-muted-foreground">
-                  No escalations found. Try Sync Slack or clear filters.
-                </TableCell>
-              </TableRow>
-            )}
-            {!loading &&
-              items.map((item) => (
-                <TableRow
-                  key={item.id}
-                  className="cursor-pointer"
-                  onClick={() => void openDetail(item.id)}
-                >
-                  <TableCell className="max-w-[420px]">
-                    <div className="truncate font-medium">{item.title}</div>
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    {item.reporter.name ?? "—"}
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                    {formatIstDate(item.createdAt)}
-                  </TableCell>
-                  {canManage && (
-                    <TableCell className="whitespace-nowrap">
-                      {isOpenEscalation(item.status) ? (
-                        <button
-                          type="button"
-                          className={cn(
-                            BADGE_BASE,
-                            "border-slate-700/20 bg-slate-500/15 text-slate-800 hover:bg-slate-500/25",
-                            "dark:border-transparent dark:bg-slate-600/25 dark:text-slate-300 dark:hover:bg-slate-600/40"
-                          )}
-                          disabled={closingId === item.id}
-                          onClick={(e) => void handleClose(item.id, e)}
-                        >
-                          {closingId === item.id ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            "Close"
-                          )}
-                        </button>
-                      ) : null}
-                    </TableCell>
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </>
+      ) : items.length === 0 ? (
+        <p className="rounded-xl border bg-card py-10 text-center text-sm text-muted-foreground">
+          No escalations found. Try Sync Slack or clear filters.
+        </p>
+      ) : (
+        <>
+          <div className="data-card-list lg:hidden">
+            {items.map((item) => (
+              <div
+                key={item.id}
+                role="button"
+                tabIndex={0}
+                className="cursor-pointer space-y-2 rounded-xl border border-border/70 bg-card/60 p-3"
+                onClick={() => void openDetail(item.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault()
+                    void openDetail(item.id)
+                  }
+                }}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <p className="min-w-0 flex-1 text-sm font-medium leading-snug">{item.title}</p>
+                  {canManage && isOpenEscalation(item.status) && (
+                    <button
+                      type="button"
+                      className={cn(
+                        BADGE_BASE,
+                        "border-slate-700/20 bg-slate-500/15 text-slate-800 hover:bg-slate-500/25",
+                        "dark:border-transparent dark:bg-slate-600/25 dark:text-slate-300 dark:hover:bg-slate-600/40"
+                      )}
+                      disabled={closingId === item.id}
+                      onClick={(e) => void handleClose(item.id, e)}
+                    >
+                      {closingId === item.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        "Close"
+                      )}
+                    </button>
                   )}
-                </TableRow>
-              ))}
-          </TableBody>
-        </Table>
-      </div>
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                  <span>Reporter: {item.reporter.name ?? "—"}</span>
+                  <span>Raised: {formatIstDate(item.createdAt)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="data-table-shell hidden lg:block">
+            <div className="rounded-xl border bg-card">
+              <Table className="min-w-[640px]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Escalation</TableHead>
+                    <TableHead>Reporter</TableHead>
+                    <TableHead className="w-[140px]">Raised on</TableHead>
+                    {canManage && <TableHead className="w-[100px]" />}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.map((item) => (
+                    <TableRow
+                      key={item.id}
+                      className="cursor-pointer"
+                      onClick={() => void openDetail(item.id)}
+                    >
+                      <TableCell className="max-w-[420px]">
+                        <div className="truncate font-medium">{item.title}</div>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {item.reporter.name ?? "—"}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                        {formatIstDate(item.createdAt)}
+                      </TableCell>
+                      {canManage && (
+                        <TableCell className="whitespace-nowrap">
+                          {isOpenEscalation(item.status) ? (
+                            <button
+                              type="button"
+                              className={cn(
+                                BADGE_BASE,
+                                "border-slate-700/20 bg-slate-500/15 text-slate-800 hover:bg-slate-500/25",
+                                "dark:border-transparent dark:bg-slate-600/25 dark:text-slate-300 dark:hover:bg-slate-600/40"
+                              )}
+                              disabled={closingId === item.id}
+                              onClick={(e) => void handleClose(item.id, e)}
+                            >
+                              {closingId === item.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                "Close"
+                              )}
+                            </button>
+                          ) : null}
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </>
+      )}
 
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
         <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">

@@ -34,8 +34,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
-import { Bell, Loader2, Pencil, RefreshCw, Search, Users } from "lucide-react"
+import { Bell, Check, Loader2, Pencil, RefreshCw, Search, Users } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { AttendanceSubNav } from "@/components/attendance/AttendanceSubNav"
 
 const EMPTY_SUMMARY: EtaSummary = {
   total: 0,
@@ -604,19 +605,19 @@ export default function AttendancePage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="font-brand text-2xl tracking-wide text-accent">Attendance</h1>
+    <div className="min-w-0 space-y-6">
+      <div className="page-header">
+        <div className="min-w-0">
+          <h1 className="font-brand text-2xl tracking-wide text-accent sm:text-3xl">Attendance</h1>
           <p className="mt-1 text-sm text-muted-foreground">{formatIstDateLabel(date)}</p>
           <p className="mt-1 text-xs text-muted-foreground">
             All times are IST. Submission deadline 11:00. Late arrival after 12:30.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="page-toolbar">
           <Input
             type="date"
-            className="h-9 w-[150px]"
+            className="h-9 w-[150px] shrink-0"
             value={date}
             onChange={(e) => {
               if (e.target.value) setDate(e.target.value)
@@ -646,7 +647,9 @@ export default function AttendancePage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <AttendanceSubNav />
+
+      <div className="filter-chip-row">
         {SUMMARY_CHIPS.map(({ key, label }) => {
           const active = filter === key
           return (
@@ -690,7 +693,7 @@ export default function AttendancePage() {
         </p>
       ) : (
         <>
-          <div className="space-y-3 md:hidden">
+          <div className="data-card-list lg:hidden">
             {entries.map((entry) => (
               <div
                 key={entry.id}
@@ -705,15 +708,20 @@ export default function AttendancePage() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{entry.userName}</p>
-                    <p className="truncate text-xs text-muted-foreground">{entry.userEmail}</p>
                   </div>
                   <EtaBadgePill badge={entry.badge} />
                 </div>
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                   <span>ETA: {entry.etaText || "—"}</span>
                   <span>This month: {monthCountsLabel(entry.monthCounts)}</span>
-                  <span>Submitted: {formatIstDateTime(entry.submittedAt)}</span>
-                  <span>Reminder: {entry.reminderSentAt ? formatIstDateTime(entry.reminderSentAt) : "—"}</span>
+                  <span className="inline-flex items-center gap-1.5">
+                    Reminder:
+                    {entry.reminderSentAt ? (
+                      <Check className="h-3.5 w-3.5 text-emerald-500" aria-label="Reminder sent" />
+                    ) : (
+                      <span aria-label="Reminder not sent">—</span>
+                    )}
+                  </span>
                 </div>
                 {isAdmin && isRemindableEntry(entry) && (
                   <Button
@@ -738,18 +746,15 @@ export default function AttendancePage() {
             ))}
           </div>
 
-          <div className="hidden md:block overflow-x-auto rounded-lg border border-border/70">
-            <Table>
+          <div className="data-table-shell hidden lg:block rounded-lg border border-border/70">
+            <Table className="min-w-[560px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
                   <TableHead>ETA</TableHead>
                   <TableHead>This month</TableHead>
-                  <TableHead>Submitted at</TableHead>
                   <TableHead>Badge</TableHead>
-                  <TableHead>Reminder sent</TableHead>
-                  {isAdmin && <TableHead className="w-[1%]" />}
+                  <TableHead className="w-[1%]">Reminder</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -761,24 +766,27 @@ export default function AttendancePage() {
                       if (isAdmin && entry.slackUserId) void openUserDetail(entry.slackUserId)
                     }}
                   >
-                    <TableCell className="font-medium">{entry.userName}</TableCell>
-                    <TableCell className="text-muted-foreground">{entry.userEmail}</TableCell>
-                    <TableCell className="tabular-nums">{entry.etaText || "—"}</TableCell>
+                    <TableCell className="font-medium whitespace-nowrap">{entry.userName}</TableCell>
+                    <TableCell className="tabular-nums whitespace-nowrap">{entry.etaText || "—"}</TableCell>
                     <TableCell className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
                       {monthCountsLabel(entry.monthCounts)}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground whitespace-nowrap">
-                      {formatIstDateTime(entry.submittedAt)}
                     </TableCell>
                     <TableCell>
                       <EtaBadgePill badge={entry.badge} />
                     </TableCell>
-                    <TableCell className="text-muted-foreground whitespace-nowrap">
-                      {entry.reminderSentAt ? formatIstDateTime(entry.reminderSentAt) : "—"}
-                    </TableCell>
-                    {isAdmin && (
-                      <TableCell>
-                        {isRemindableEntry(entry) ? (
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        {entry.reminderSentAt ? (
+                          <Check
+                            className="h-4 w-4 shrink-0 text-emerald-500"
+                            aria-label="Reminder sent"
+                          />
+                        ) : (
+                          <span className="w-4 text-center text-muted-foreground" aria-label="Reminder not sent">
+                            —
+                          </span>
+                        )}
+                        {isAdmin && isRemindableEntry(entry) ? (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -797,8 +805,8 @@ export default function AttendancePage() {
                             )}
                           </Button>
                         ) : null}
-                      </TableCell>
-                    )}
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

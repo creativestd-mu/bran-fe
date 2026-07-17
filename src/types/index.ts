@@ -950,6 +950,13 @@ export function canManageEta(user: User | null): boolean {
   return hasRole(user, "admin", "chief_of_staff")
 }
 
+export interface AttendancePolicyDoc {
+  id: string
+  bodyMd: string
+  updatedAt: string
+  updatedBy: { id: string; name: string } | null
+}
+
 export interface EtaApprovalBucket {
   total: number
   approved: number

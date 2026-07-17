@@ -337,7 +337,7 @@ function SocialInsightsPage() {
               <span className="pagination-text">{recordsPagination.total} total records</span>
             </div>
 
-            <div className="records-mobile-list md:hidden">
+            <div className="records-mobile-list lg:hidden">
               {records.map((record) => {
                 const linkedInRow = source === "linkedin" ? linkedInRows.find((item) => item.id === record.id) : undefined
                 return (
@@ -370,7 +370,7 @@ function SocialInsightsPage() {
               })}
             </div>
 
-            <div className="records-table-wrap hidden md:block">
+            <div className="records-table-wrap hidden lg:block">
               <table className="records-table">
                 <thead>
                   <tr>

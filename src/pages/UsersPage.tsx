@@ -208,7 +208,7 @@ export default function UsersPage() {
             </div>
           ) : (
             <>
-              <div className="space-y-3 md:hidden">
+              <div className="data-card-list lg:hidden">
                 {filtered.map((u) => (
                   <button
                     key={u.id}
@@ -246,8 +246,8 @@ export default function UsersPage() {
                 )}
               </div>
 
-              <div className="hidden md:block">
-              <Table>
+              <div className="data-table-shell hidden lg:block">
+              <Table className="min-w-[720px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>User</TableHead>

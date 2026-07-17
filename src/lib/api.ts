@@ -756,6 +756,9 @@ export const etaApi = {
       `/attendance/stats/${encodeURIComponent(slackUserId)}/set-counts`,
       body
     ),
+  getPolicies: () => api.get<import("@/types").AttendancePolicyDoc>("/attendance/policies"),
+  updatePolicies: (body: { bodyMd: string }) =>
+    api.put<import("@/types").AttendancePolicyDoc>("/attendance/policies", body),
 }
 
 /** Escalation tracker — /en/v1/attendance/escalations/* ≡ /api/eta/escalations/* */
