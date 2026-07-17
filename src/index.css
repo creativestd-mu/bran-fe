@@ -144,6 +144,40 @@ body {
   overflow-x: clip;
 }
 
+/* Pointer cursor for interactive elements app-wide */
+:where(
+  button:not(:disabled):not([disabled]):not([aria-disabled="true"]),
+  a[href],
+  label[for],
+  label:has(> [role="switch"]),
+  label:has(> input[type="checkbox"]),
+  label:has(> input[type="radio"]),
+  summary,
+  select:not(:disabled):not([disabled]),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="link"]:not([aria-disabled="true"]),
+  [role="tab"]:not([aria-disabled="true"]),
+  [role="menuitem"]:not([aria-disabled="true"]),
+  [role="option"]:not([aria-disabled="true"]),
+  [role="switch"]:not([aria-disabled="true"])
+) {
+  cursor: pointer;
+}
+
+:where(
+  button:disabled,
+  button[disabled],
+  button[aria-disabled="true"],
+  select:disabled,
+  select[disabled],
+  [role="button"][aria-disabled="true"],
+  [role="menuitem"][aria-disabled="true"],
+  [role="option"][aria-disabled="true"],
+  [role="switch"][aria-disabled="true"]
+) {
+  cursor: not-allowed;
+}
+
 /* Long unbroken strings (URLs, pasted text) wrap instead of spilling horizontally */
 :where(
   p,
