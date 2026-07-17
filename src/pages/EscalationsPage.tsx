@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useState, type MouseEvent } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { escalationsApi } from "@/lib/api"
 import {
@@ -60,6 +60,13 @@ const FILTER_CHIPS: Array<{
 
 const STATUS_OPTIONS: EscalationStatus[] = ["open", "resolved", "closed"]
 
+const BADGE_BASE =
+  "inline-flex h-6 shrink-0 items-center whitespace-nowrap rounded-full px-2.5 py-0 text-xs font-medium leading-none"
+
+function isOpenEscalation(status: EscalationStatus): boolean {
+  return status === "open" || status === "waiting" || status === "in_progress"
+}
+
 function formatIstDate(iso: string | null | undefined): string {
   if (!iso) return "—"
   return new Intl.DateTimeFormat("en-IN", {
@@ -89,6 +96,7 @@ export default function EscalationsPage() {
   const [statusDraft, setStatusDraft] = useState<EscalationStatus>("open")
   const [noteDraft, setNoteDraft] = useState("")
   const [savingNote, setSavingNote] = useState(false)
+  const [closingId, setClosingId] = useState<string | null>(null)
 
   const summary = data?.summary ?? EMPTY_SUMMARY
   const items = data?.items ?? []
@@ -141,6 +149,24 @@ export default function EscalationsPage() {
       setDetailOpen(false)
     } finally {
       setDetailLoading(false)
+    }
+  }
+
+  const handleClose = async (id: string, e?: MouseEvent) => {
+    e?.stopPropagation()
+    setClosingId(id)
+    try {
+      await escalationsApi.updateStatus(id, { status: "closed" })
+      toast.success("Escalation closed")
+      if (detail?.id === id) {
+        setDetailOpen(false)
+        setDetail(null)
+      }
+      await fetchList()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to close escalation")
+    } finally {
+      setClosingId(null)
     }
   }
 
@@ -278,13 +304,14 @@ export default function EscalationsPage() {
               <TableHead>Escalation</TableHead>
               <TableHead>Reporter</TableHead>
               <TableHead className="w-[140px]">Raised on</TableHead>
+              {canManage && <TableHead className="w-[100px]" />}
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading &&
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 3 }).map((__, j) => (
+                  {Array.from({ length: canManage ? 4 : 3 }).map((__, j) => (
                     <TableCell key={j}>
                       <Skeleton className="h-4 w-full" />
                     </TableCell>
@@ -293,7 +320,7 @@ export default function EscalationsPage() {
               ))}
             {!loading && items.length === 0 && (
               <TableRow>
-                <TableCell colSpan={3} className="py-10 text-center text-muted-foreground">
+                <TableCell colSpan={canManage ? 4 : 3} className="py-10 text-center text-muted-foreground">
                   No escalations found. Try Sync Slack or clear filters.
                 </TableCell>
               </TableRow>
@@ -314,6 +341,28 @@ export default function EscalationsPage() {
                   <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                     {formatIstDate(item.createdAt)}
                   </TableCell>
+                  {canManage && (
+                    <TableCell className="whitespace-nowrap">
+                      {isOpenEscalation(item.status) ? (
+                        <button
+                          type="button"
+                          className={cn(
+                            BADGE_BASE,
+                            "border-slate-700/20 bg-slate-500/15 text-slate-800 hover:bg-slate-500/25",
+                            "dark:border-transparent dark:bg-slate-600/25 dark:text-slate-300 dark:hover:bg-slate-600/40"
+                          )}
+                          disabled={closingId === item.id}
+                          onClick={(e) => void handleClose(item.id, e)}
+                        >
+                          {closingId === item.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            "Close"
+                          )}
+                        </button>
+                      ) : null}
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
           </TableBody>
@@ -338,9 +387,27 @@ export default function EscalationsPage() {
 
           {!detailLoading && detail && (
             <div className="space-y-5">
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
                 <span>Reporter: {detail.reporter.name ?? "—"}</span>
                 <span>Raised on: {formatIstDate(detail.createdAt)}</span>
+                {canManage && isOpenEscalation(detail.status) && (
+                  <button
+                    type="button"
+                    className={cn(
+                      BADGE_BASE,
+                      "border-slate-700/20 bg-slate-500/15 text-slate-800 hover:bg-slate-500/25",
+                      "dark:border-transparent dark:bg-slate-600/25 dark:text-slate-300 dark:hover:bg-slate-600/40"
+                    )}
+                    disabled={closingId === detail.id}
+                    onClick={() => void handleClose(detail.id)}
+                  >
+                    {closingId === detail.id ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      "Close"
+                    )}
+                  </button>
+                )}
               </div>
 
               <section className="space-y-1">
