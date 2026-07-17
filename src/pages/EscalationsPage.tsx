@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useAuth } from "@/contexts/AuthContext"
 import { escalationsApi } from "@/lib/api"
 import {
@@ -67,18 +67,6 @@ function formatIstDate(iso: string | null | undefined): string {
     day: "2-digit",
     month: "short",
     year: "numeric",
-  }).format(new Date(iso))
-}
-
-function formatIstDateTime(iso: string | null | undefined): string {
-  if (!iso) return "—"
-  return new Intl.DateTimeFormat("en-IN", {
-    timeZone: "Asia/Kolkata",
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
   }).format(new Date(iso))
 }
 
@@ -220,13 +208,6 @@ export default function EscalationsPage() {
       setSavingNote(false)
     }
   }
-
-  const timeline = useMemo(() => {
-    if (!detail?.updates) return []
-    return [...detail.updates].sort(
-      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-    )
-  }, [detail])
 
   return (
     <div className="space-y-6">
@@ -388,81 +369,6 @@ export default function EscalationsPage() {
                     )}
                   </div>
                 )}
-              </section>
-
-              <section className="space-y-1">
-                <h3 className="text-sm font-medium">Where it stands</h3>
-                <p className="rounded-lg border p-3 text-sm leading-relaxed">
-                  {detail.ai.summary || detail.latestContext}
-                </p>
-                {detail.ai.blockers.length > 0 && (
-                  <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                    {detail.ai.blockers.map((blocker) => (
-                      <li key={blocker}>{blocker}</li>
-                    ))}
-                  </ul>
-                )}
-                {detail.ai.analyzedAt && (
-                  <p className="text-xs text-muted-foreground">
-                    AI analyzed {formatIstDateTime(detail.ai.analyzedAt)}
-                  </p>
-                )}
-              </section>
-
-              {detail.ai.issueDescription &&
-                detail.problemContext &&
-                detail.ai.issueDescription !== detail.problemContext && (
-                  <section className="space-y-1">
-                    <h3 className="text-sm font-medium">Original Slack message</h3>
-                    <p className="whitespace-pre-wrap rounded-lg border p-3 text-sm text-muted-foreground">
-                      {detail.problemContext}
-                    </p>
-                  </section>
-                )}
-
-              <section className="space-y-2">
-                <h3 className="text-sm font-medium">Timeline</h3>
-                <div className="max-h-56 space-y-3 overflow-y-auto rounded-lg border p-3">
-                  {timeline.length === 0 && (
-                    <p className="text-sm text-muted-foreground">No updates yet.</p>
-                  )}
-                  {timeline.map((update) => (
-                    <div
-                      key={update.id}
-                      className="space-y-1 border-b border-border/60 pb-3 last:border-0 last:pb-0"
-                    >
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        <span className="font-medium text-foreground">
-                          {update.authorName ?? "Unknown"}
-                        </span>
-                        <span>{formatIstDateTime(update.createdAt)}</span>
-                        {update.isManual && <Badge variant="outline">Admin</Badge>}
-                      </div>
-                      <p className="whitespace-pre-wrap text-sm">{update.body}</p>
-                      {(update.attachments?.length ?? 0) > 0 && (
-                        <div className="flex flex-wrap gap-2">
-                          {update.attachments!.map((file) =>
-                            file.permalink ? (
-                              <a
-                                key={file.id}
-                                href={file.permalink}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-xs text-primary hover:underline"
-                              >
-                                {file.name || "Image"}
-                              </a>
-                            ) : (
-                              <span key={file.id} className="text-xs text-muted-foreground">
-                                {file.name || "Image"}
-                              </span>
-                            )
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
               </section>
 
               {canManage && (
