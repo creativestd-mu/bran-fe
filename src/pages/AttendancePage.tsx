@@ -722,18 +722,13 @@ export default function AttendancePage() {
                       <EtaBadgePill badge={entry.badge} />
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center justify-start">
                         {entry.reminderSentAt ? (
                           <Check
                             className="h-4 w-4 shrink-0 text-emerald-500"
                             aria-label="Reminder sent"
                           />
-                        ) : (
-                          <span className="w-4 text-center text-muted-foreground" aria-label="Reminder not sent">
-                            —
-                          </span>
-                        )}
-                        {isAdmin && isRemindableEntry(entry) ? (
+                        ) : isAdmin && isRemindableEntry(entry) ? (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -751,7 +746,11 @@ export default function AttendancePage() {
                               <Bell className="h-3.5 w-3.5" />
                             )}
                           </Button>
-                        ) : null}
+                        ) : (
+                          <span className="text-muted-foreground" aria-label="Reminder not sent">
+                            —
+                          </span>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
