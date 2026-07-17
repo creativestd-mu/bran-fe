@@ -60,9 +60,6 @@ const FILTER_CHIPS: Array<{
 
 const STATUS_OPTIONS: EscalationStatus[] = ["open", "resolved", "closed"]
 
-const BADGE_BASE =
-  "inline-flex h-6 shrink-0 items-center whitespace-nowrap rounded-full px-2.5 py-0 text-xs font-medium leading-none"
-
 function isOpenEscalation(status: EscalationStatus): boolean {
   return status === "open" || status === "waiting" || status === "in_progress"
 }
@@ -354,22 +351,19 @@ export default function EscalationsPage() {
                 <div className="flex items-start justify-between gap-2">
                   <p className="min-w-0 flex-1 text-sm font-medium leading-snug">{item.title}</p>
                   {canManage && isOpenEscalation(item.status) && (
-                    <button
+                    <Button
                       type="button"
-                      className={cn(
-                        BADGE_BASE,
-                        "border-slate-700/20 bg-slate-500/15 text-slate-800 hover:bg-slate-500/25",
-                        "dark:border-transparent dark:bg-slate-600/25 dark:text-slate-300 dark:hover:bg-slate-600/40"
-                      )}
+                      variant="outline"
+                      size="sm"
+                      className="h-8 shrink-0 px-3"
                       disabled={closingId === item.id}
                       onClick={(e) => void handleClose(item.id, e)}
                     >
                       {closingId === item.id ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        "Close"
-                      )}
-                    </button>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : null}
+                      Close
+                    </Button>
                   )}
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -410,22 +404,19 @@ export default function EscalationsPage() {
                       {canManage && (
                         <TableCell className="whitespace-nowrap">
                           {isOpenEscalation(item.status) ? (
-                            <button
+                            <Button
                               type="button"
-                              className={cn(
-                                BADGE_BASE,
-                                "border-slate-700/20 bg-slate-500/15 text-slate-800 hover:bg-slate-500/25",
-                                "dark:border-transparent dark:bg-slate-600/25 dark:text-slate-300 dark:hover:bg-slate-600/40"
-                              )}
+                              variant="outline"
+                              size="sm"
+                              className="h-8 px-3"
                               disabled={closingId === item.id}
                               onClick={(e) => void handleClose(item.id, e)}
                             >
                               {closingId === item.id ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                "Close"
-                              )}
-                            </button>
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : null}
+                              Close
+                            </Button>
                           ) : null}
                         </TableCell>
                       )}
@@ -460,22 +451,19 @@ export default function EscalationsPage() {
                 <span>Reporter: {detail.reporter.name ?? "—"}</span>
                 <span>Raised on: {formatIstDate(detail.createdAt)}</span>
                 {canManage && isOpenEscalation(detail.status) && (
-                  <button
+                  <Button
                     type="button"
-                    className={cn(
-                      BADGE_BASE,
-                      "border-slate-700/20 bg-slate-500/15 text-slate-800 hover:bg-slate-500/25",
-                      "dark:border-transparent dark:bg-slate-600/25 dark:text-slate-300 dark:hover:bg-slate-600/40"
-                    )}
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-3"
                     disabled={closingId === detail.id}
                     onClick={() => void handleClose(detail.id)}
                   >
                     {closingId === detail.id ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      "Close"
-                    )}
-                  </button>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : null}
+                    Close
+                  </Button>
                 )}
               </div>
 
