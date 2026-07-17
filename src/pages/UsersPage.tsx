@@ -208,7 +208,7 @@ export default function UsersPage() {
             </div>
           ) : (
             <>
-              <div className="data-card-list lg:hidden">
+              <div className="data-card-list flex flex-col lg:hidden">
                 {filtered.map((u) => (
                   <button
                     key={u.id}

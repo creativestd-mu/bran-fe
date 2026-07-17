@@ -299,7 +299,7 @@ export default function EscalationsPage() {
 
       {loading ? (
         <>
-          <div className="data-card-list lg:hidden">
+          <div className="data-card-list flex flex-col lg:hidden">
             {Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="h-20 w-full rounded-xl" />
             ))}
@@ -336,7 +336,7 @@ export default function EscalationsPage() {
         </p>
       ) : (
         <>
-          <div className="data-card-list lg:hidden">
+          <div className="data-card-list flex flex-col lg:hidden">
             {items.map((item) => (
               <div
                 key={item.id}

@@ -693,7 +693,7 @@ export default function AttendancePage() {
         </p>
       ) : (
         <>
-          <div className="data-card-list lg:hidden">
+          <div className="data-card-list flex flex-col lg:hidden">
             {entries.map((entry) => (
               <div
                 key={entry.id}
@@ -754,7 +754,7 @@ export default function AttendancePage() {
                   <TableHead>ETA</TableHead>
                   <TableHead>This month</TableHead>
                   <TableHead>Badge</TableHead>
-                  <TableHead className="w-[1%]">Reminder</TableHead>
+                  <TableHead className="w-[1%] whitespace-nowrap">Reminder</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

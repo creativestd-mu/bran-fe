@@ -452,7 +452,7 @@ export default function MeetingsPage() {
           </p>
         ) : (
           <>
-            <div className="data-card-list lg:hidden">
+            <div className="data-card-list flex flex-col lg:hidden">
               {meetings.map((meeting) => (
                 <div
                   key={meeting.id}
