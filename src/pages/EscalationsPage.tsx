@@ -235,14 +235,9 @@ export default function EscalationsPage() {
       const res = await escalationsApi.sync({ days: 30 })
       toast.success(
         `Synced ${res.escalations} escalations, ${res.updates} updates` +
-          (res.errors.length ? ` (${res.errors.length} errors)` : "") +
-          " — refreshing titles in the background"
+          (res.errors.length ? ` (${res.errors.length} errors)` : "")
       )
       await fetchList()
-      // AI title rewrite is async after sync; refresh the list once it settles.
-      window.setTimeout(() => {
-        void fetchList()
-      }, 20_000)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Sync failed")
     } finally {
