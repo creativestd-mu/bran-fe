@@ -5,7 +5,6 @@ import {
   canManageEscalations,
   type EscalationItem,
   type EscalationListData,
-  type EscalationPriority,
   type EscalationStatus,
   type EscalationSummary,
 } from "@/types"
@@ -13,7 +12,6 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Switch } from "@/components/ui/switch"
 import {
   Table,
   TableBody,
@@ -48,83 +46,29 @@ const EMPTY_SUMMARY: EscalationSummary = {
   closed: 0,
 }
 
-const STATUS_OPTIONS: EscalationStatus[] = [
-  "open",
-  "in_progress",
-  "waiting",
-  "resolved",
-  "closed",
-]
-
-const STATUS_STYLE: Record<
-  EscalationStatus,
-  { label: string; className: string }
-> = {
-  open: {
-    label: "Open",
-    className:
-      "border-sky-700/20 bg-sky-500/15 text-sky-800 dark:border-transparent dark:bg-sky-600/25 dark:text-sky-300",
-  },
-  in_progress: {
-    label: "In progress",
-    className:
-      "border-amber-700/25 bg-amber-500/20 text-amber-800 dark:border-transparent dark:bg-amber-600/25 dark:text-amber-300",
-  },
-  waiting: {
-    label: "Waiting",
-    className:
-      "border-violet-700/20 bg-violet-500/15 text-violet-800 dark:border-transparent dark:bg-violet-600/30 dark:text-violet-300",
-  },
-  resolved: {
-    label: "Resolved",
-    className:
-      "border-emerald-700/20 bg-emerald-500/15 text-emerald-800 dark:border-transparent dark:bg-emerald-600/25 dark:text-emerald-300",
-  },
-  closed: {
-    label: "Closed",
-    className:
-      "border-slate-700/20 bg-slate-500/15 text-slate-800 dark:border-transparent dark:bg-slate-600/25 dark:text-slate-300",
-  },
-}
-
-const PRIORITY_STYLE: Record<
-  EscalationPriority,
-  { label: string; className: string }
-> = {
-  low: {
-    label: "Low",
-    className:
-      "border-slate-700/20 bg-slate-500/15 text-slate-800 dark:border-transparent dark:bg-slate-600/25 dark:text-slate-300",
-  },
-  medium: {
-    label: "Medium",
-    className:
-      "border-cyan-700/20 bg-cyan-500/15 text-cyan-800 dark:border-transparent dark:bg-cyan-600/25 dark:text-cyan-300",
-  },
-  high: {
-    label: "High",
-    className:
-      "border-orange-700/25 bg-orange-500/15 text-orange-800 dark:border-transparent dark:bg-orange-600/25 dark:text-orange-300",
-  },
-  urgent: {
-    label: "Urgent",
-    className:
-      "border-red-700/25 bg-red-500/15 text-red-800 dark:border-transparent dark:bg-red-600/25 dark:text-red-300",
-  },
-}
-
-const SUMMARY_CHIPS: Array<{
+/** Open is the default working state; waiting/in_progress are treated as open in the UI. */
+const FILTER_CHIPS: Array<{
   key: keyof EscalationSummary | "total"
   label: string
   status?: EscalationStatus
 }> = [
-  { key: "total", label: "Total" },
   { key: "open", label: "Open", status: "open" },
-  { key: "inProgress", label: "In progress", status: "in_progress" },
-  { key: "waiting", label: "Waiting", status: "waiting" },
   { key: "resolved", label: "Resolved", status: "resolved" },
   { key: "closed", label: "Closed", status: "closed" },
+  { key: "total", label: "All" },
 ]
+
+const STATUS_OPTIONS: EscalationStatus[] = ["open", "resolved", "closed"]
+
+function formatIstDate(iso: string | null | undefined): string {
+  if (!iso) return "—"
+  return new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(iso))
+}
 
 function formatIstDateTime(iso: string | null | undefined): string {
   if (!iso) return "—"
@@ -138,27 +82,6 @@ function formatIstDateTime(iso: string | null | undefined): string {
   }).format(new Date(iso))
 }
 
-const BADGE_BASE =
-  "inline-flex h-6 shrink-0 items-center whitespace-nowrap rounded-full px-2.5 py-0 text-xs font-medium leading-none"
-
-function StatusBadge({ status }: { status: EscalationStatus }) {
-  const config = STATUS_STYLE[status] ?? STATUS_STYLE.open
-  return (
-    <Badge variant="outline" className={cn(BADGE_BASE, config.className)}>
-      {config.label}
-    </Badge>
-  )
-}
-
-function PriorityBadge({ priority }: { priority: EscalationPriority }) {
-  const config = PRIORITY_STYLE[priority] ?? PRIORITY_STYLE.medium
-  return (
-    <Badge variant="outline" className={cn(BADGE_BASE, config.className)}>
-      {config.label}
-    </Badge>
-  )
-}
-
 export default function EscalationsPage() {
   const { user } = useAuth()
   const canManage = canManageEscalations(user)
@@ -167,8 +90,7 @@ export default function EscalationsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState("")
-  const [statusFilter, setStatusFilter] = useState<EscalationStatus | null>(null)
-  const [activeOnly, setActiveOnly] = useState(true)
+  const [statusFilter, setStatusFilter] = useState<EscalationStatus | null>("open")
   const [syncing, setSyncing] = useState(false)
 
   const [detailOpen, setDetailOpen] = useState(false)
@@ -189,7 +111,6 @@ export default function EscalationsPage() {
     try {
       const res = await escalationsApi.list({
         status: statusFilter ?? undefined,
-        activeOnly: statusFilter ? false : activeOnly,
         search: search.trim() || undefined,
         take: 100,
       })
@@ -201,7 +122,7 @@ export default function EscalationsPage() {
     } finally {
       setLoading(false)
     }
-  }, [activeOnly, search, statusFilter])
+  }, [search, statusFilter])
 
   useEffect(() => {
     void fetchList()
@@ -209,6 +130,10 @@ export default function EscalationsPage() {
 
   const summaryValue = (key: keyof EscalationSummary | "total") => {
     if (key === "total") return data?.total ?? 0
+    if (key === "open") {
+      // Treat waiting / in_progress as open in the chip count.
+      return summary.open + summary.inProgress + summary.waiting
+    }
     return summary[key]
   }
 
@@ -220,7 +145,9 @@ export default function EscalationsPage() {
     try {
       const res = await escalationsApi.get(id)
       setDetail(res)
-      setStatusDraft(res.status)
+      const status =
+        res.status === "waiting" || res.status === "in_progress" ? "open" : res.status
+      setStatusDraft(status)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to load escalation")
       setDetailOpen(false)
@@ -251,7 +178,9 @@ export default function EscalationsPage() {
     try {
       const res = await escalationsApi.analyze(detail.id)
       setDetail(res)
-      setStatusDraft(res.status)
+      const status =
+        res.status === "waiting" || res.status === "in_progress" ? "open" : res.status
+      setStatusDraft(status)
       toast.success("AI analysis updated")
       await fetchList()
     } catch (err) {
@@ -267,7 +196,7 @@ export default function EscalationsPage() {
     try {
       const res = await escalationsApi.updateStatus(detail.id, { status: statusDraft })
       setDetail(res)
-      toast.success(`Status set to ${STATUS_STYLE[statusDraft].label}`)
+      toast.success(`Marked ${statusDraft.replace(/_/g, " ")}`)
       await fetchList()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update status")
@@ -305,7 +234,7 @@ export default function EscalationsPage() {
         <div>
           <h1 className="font-brand text-3xl tracking-wide">Escalations</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Slack escalation-matrix tracker — latest context, status, and AI summary
+            Slack escalation-matrix tracker
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -323,18 +252,14 @@ export default function EscalationsPage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {SUMMARY_CHIPS.map((chip) => {
+        {FILTER_CHIPS.map((chip) => {
           const active =
-            chip.key === "total"
-              ? !statusFilter
-              : statusFilter === chip.status
+            chip.key === "total" ? statusFilter === null : statusFilter === chip.status
           return (
             <button
               key={chip.key}
               type="button"
-              onClick={() =>
-                setStatusFilter(chip.status && statusFilter !== chip.status ? chip.status : null)
-              }
+              onClick={() => setStatusFilter(chip.status ?? null)}
               className={cn(
                 "rounded-full border px-3 py-1.5 text-sm transition-colors",
                 active
@@ -349,24 +274,14 @@ export default function EscalationsPage() {
         })}
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            className="pl-9"
-            placeholder="Search title, context, reporter…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Switch
-            checked={activeOnly}
-            onCheckedChange={setActiveOnly}
-            disabled={Boolean(statusFilter)}
-          />
-          Active only
-        </label>
+      <div className="relative max-w-xl">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          className="pl-9"
+          placeholder="Search title, context, reporter…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
       </div>
 
       {error && (
@@ -380,18 +295,15 @@ export default function EscalationsPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Escalation</TableHead>
-              <TableHead className="w-[120px]">Status</TableHead>
-              <TableHead className="w-[100px]">Priority</TableHead>
               <TableHead>Reporter</TableHead>
-              <TableHead>Latest context</TableHead>
-              <TableHead className="w-[140px]">Created</TableHead>
+              <TableHead className="w-[140px]">Raised on</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading &&
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 6 }).map((__, j) => (
+                  {Array.from({ length: 3 }).map((__, j) => (
                     <TableCell key={j}>
                       <Skeleton className="h-4 w-full" />
                     </TableCell>
@@ -400,7 +312,7 @@ export default function EscalationsPage() {
               ))}
             {!loading && items.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                <TableCell colSpan={3} className="py-10 text-center text-muted-foreground">
                   No escalations found. Try Sync Slack or clear filters.
                 </TableCell>
               </TableRow>
@@ -412,25 +324,14 @@ export default function EscalationsPage() {
                   className="cursor-pointer"
                   onClick={() => void openDetail(item.id)}
                 >
-                  <TableCell className="max-w-[220px]">
+                  <TableCell className="max-w-[420px]">
                     <div className="truncate font-medium">{item.title}</div>
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    <StatusBadge status={item.status} />
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    <PriorityBadge priority={item.priority} />
                   </TableCell>
                   <TableCell className="whitespace-nowrap">
                     {item.reporter.name ?? "—"}
                   </TableCell>
-                  <TableCell className="max-w-[320px]">
-                    <div className="line-clamp-2 text-sm text-muted-foreground">
-                      {item.ai.issueDescription || item.ai.summary || item.latestContext}
-                    </div>
-                  </TableCell>
                   <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                    {formatIstDateTime(item.createdAt)}
+                    {formatIstDate(item.createdAt)}
                   </TableCell>
                 </TableRow>
               ))}
@@ -456,12 +357,9 @@ export default function EscalationsPage() {
 
           {!detailLoading && detail && (
             <div className="space-y-5">
-              <div className="flex flex-wrap items-center gap-2">
-                <StatusBadge status={detail.status} />
-                <PriorityBadge priority={detail.priority} />
-                <span className="text-sm text-muted-foreground">
-                  Reporter: {detail.reporter.name ?? "—"}
-                </span>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                <span>Reporter: {detail.reporter.name ?? "—"}</span>
+                <span>Raised on: {formatIstDate(detail.createdAt)}</span>
               </div>
 
               <section className="space-y-1">
@@ -529,18 +427,16 @@ export default function EscalationsPage() {
                     <p className="text-sm text-muted-foreground">No updates yet.</p>
                   )}
                   {timeline.map((update) => (
-                    <div key={update.id} className="space-y-1 border-b border-border/60 pb-3 last:border-0 last:pb-0">
+                    <div
+                      key={update.id}
+                      className="space-y-1 border-b border-border/60 pb-3 last:border-0 last:pb-0"
+                    >
                       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                         <span className="font-medium text-foreground">
                           {update.authorName ?? "Unknown"}
                         </span>
                         <span>{formatIstDateTime(update.createdAt)}</span>
                         {update.isManual && <Badge variant="outline">Admin</Badge>}
-                        {update.inferredStatus && (
-                          <Badge variant="secondary" className="capitalize">
-                            {update.inferredStatus.replace(/_/g, " ")}
-                          </Badge>
-                        )}
                       </div>
                       <p className="whitespace-pre-wrap text-sm">{update.body}</p>
                       {(update.attachments?.length ?? 0) > 0 && (
@@ -573,7 +469,7 @@ export default function EscalationsPage() {
                 <section className="space-y-3 rounded-lg border p-3">
                   <div className="flex flex-wrap items-end gap-2">
                     <div className="min-w-[160px] flex-1 space-y-1">
-                      <label className="text-xs text-muted-foreground">Status</label>
+                      <label className="text-xs text-muted-foreground">Mark as</label>
                       <Select
                         value={statusDraft}
                         onValueChange={(v) => setStatusDraft(v as EscalationStatus)}
@@ -584,7 +480,11 @@ export default function EscalationsPage() {
                         <SelectContent>
                           {STATUS_OPTIONS.map((status) => (
                             <SelectItem key={status} value={status}>
-                              {STATUS_STYLE[status].label}
+                              {status === "open"
+                                ? "Open"
+                                : status === "resolved"
+                                  ? "Resolved"
+                                  : "Closed"}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -593,13 +493,17 @@ export default function EscalationsPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={savingStatus || statusDraft === detail.status}
+                      disabled={
+                        savingStatus ||
+                        statusDraft ===
+                          (detail.status === "waiting" || detail.status === "in_progress"
+                            ? "open"
+                            : detail.status)
+                      }
                       onClick={() => void handleStatusSave()}
                     >
-                      {savingStatus ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : null}
-                      Update status
+                      {savingStatus ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                      Save
                     </Button>
                     <Button
                       size="sm"
