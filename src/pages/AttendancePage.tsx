@@ -693,60 +693,7 @@ export default function AttendancePage() {
         </p>
       ) : (
         <>
-          <div className="data-card-list flex flex-col lg:hidden">
-            {entries.map((entry) => (
-              <div
-                key={entry.id}
-                className={cn(
-                  "rounded-xl border border-border/70 bg-card/60 p-3 space-y-2",
-                  isAdmin && entry.slackUserId && "cursor-pointer hover:bg-card/80"
-                )}
-                onClick={() => {
-                  if (isAdmin && entry.slackUserId) void openUserDetail(entry.slackUserId)
-                }}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{entry.userName}</p>
-                  </div>
-                  <EtaBadgePill badge={entry.badge} />
-                </div>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                  <span>ETA: {entry.etaText || "—"}</span>
-                  <span>This month: {monthCountsLabel(entry.monthCounts)}</span>
-                  <span className="inline-flex items-center gap-1.5">
-                    Reminder:
-                    {entry.reminderSentAt ? (
-                      <Check className="h-3.5 w-3.5 text-emerald-500" aria-label="Reminder sent" />
-                    ) : (
-                      <span aria-label="Reminder not sent">—</span>
-                    )}
-                  </span>
-                </div>
-                {isAdmin && isRemindableEntry(entry) && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8"
-                    disabled={remindingSlackUserId === entry.slackUserId}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      void handleRemindOne(entry)
-                    }}
-                  >
-                    {remindingSlackUserId === entry.slackUserId ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Bell className="h-3.5 w-3.5" />
-                    )}
-                    Remind
-                  </Button>
-                )}
-              </div>
-            ))}
-          </div>
-
-          <div className="data-table-shell hidden lg:block rounded-lg border border-border/70">
+          <div className="data-table-shell rounded-lg border border-border/70">
             <Table className="min-w-[560px]">
               <TableHeader>
                 <TableRow>
