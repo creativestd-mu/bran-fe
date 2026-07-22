@@ -816,6 +816,19 @@ export const meetingsApi = {
     api.post<import("@/types").Meeting>("/meetings/join", data),
 }
 
+/** Gmail sync — /en/v1/gmail/* */
+export const gmailApi = {
+  status: () => api.get<import("@/types").GmailStatus>("/gmail/status"),
+  connect: () => api.post<import("@/types").GmailConnectResult>("/gmail/connect"),
+  disconnect: () => api.delete("/gmail"),
+  sync: () => api.post<import("@/types").GmailSyncResult>("/gmail/sync"),
+  listMessages: (params?: { limit?: number; q?: string }) =>
+    api.get<import("@/types").GmailMessage[]>(
+      "/gmail/messages",
+      params as Record<string, unknown>
+    ),
+}
+
 function brainGraphQuery(params?: import("@/types").BrainGraphParams): string {
   if (!params) return ""
   const qs = new URLSearchParams()

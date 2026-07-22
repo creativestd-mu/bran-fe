@@ -20,6 +20,7 @@ import {
   TriangleAlert,
   Mic,
   Video,
+  Mail,
   Orbit,
   Compass,
   Target,
@@ -122,6 +123,17 @@ export const NAV_SEARCH_INDEX: NavSearchItem[] = [
       "meetings", "google meet", "meet", "calendar", "notetaker",
       "bran notetaker", "recall", "bot", "join meeting", "google calendar",
       "meeting bot", "auto join", "record meeting",
+    ],
+  },
+  {
+    label: "Gmail",
+    path: "/gmail",
+    description: "Connect Gmail and sync recent inbox messages into Bran",
+    icon: Mail,
+    weight: 9,
+    keywords: [
+      "gmail", "email", "inbox", "mail", "google mail", "sync email",
+      "messages", "mailbox",
     ],
   },
   {

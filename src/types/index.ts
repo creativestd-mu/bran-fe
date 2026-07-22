@@ -1164,6 +1164,44 @@ export interface CalendarConnectResult {
   authorizationUrl: string
 }
 
+// ---------- Gmail ----------
+
+export type GmailConnectionStatus = "CONNECTED" | "DISCONNECTED" | "ERROR"
+
+export interface GmailStatus {
+  connected: boolean
+  status?: GmailConnectionStatus
+  oauthEmail?: string
+  connectedAt?: string
+  lastSyncedAt?: string | null
+  errorMessage?: string | null
+}
+
+export interface GmailConnectResult {
+  authorizationUrl: string
+}
+
+export interface GmailMessage {
+  id: string
+  gmailMessageId: string
+  threadId: string | null
+  subject: string | null
+  fromAddress: string | null
+  toAddresses: string | null
+  snippet: string | null
+  bodyText: string | null
+  labelIds: string[]
+  receivedAt: string | null
+  isRead: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface GmailSyncResult {
+  synced: number
+  messages: GmailMessage[]
+}
+
 // ---------- Brain map (Obsidian-style graph) ----------
 
 export type BrainNodeType =
@@ -1175,11 +1213,21 @@ export type BrainNodeType =
   | "idea"
   | "theme"
   | "collaboration"
+  | "escalation"
+
+/** Common + AI/person edge kinds on the brain graph. */
+export type BrainEdgeType =
+  | "reported_by"
+  | "updated_by"
+  | "blocks"
+  | "relates_to"
+  | string
 
 export interface BrainNodeMeta {
   color?: string
   entityId?: string
   status?: string
+  priority?: string
   email?: string
   avatarUrl?: string
   designation?: string
@@ -1187,6 +1235,16 @@ export interface BrainNodeMeta {
   startTime?: string | null
   hasTranscript?: boolean
   aiGenerated?: boolean
+  /** Escalation AI summary text. */
+  aiSummary?: string
+  /** JSON string of string[], or occasionally a string[]. */
+  aiBlockers?: string | string[]
+  latestUpdateAt?: string | null
+  resolvedAt?: string | null
+  reporterName?: string | null
+  reporterEmail?: string | null
+  slackChannelId?: string
+  slackMessageTs?: string
   [key: string]: unknown
 }
 
@@ -1202,7 +1260,8 @@ export interface BrainEdge {
   id: string
   source: string
   target: string
-  type: string
+  /** e.g. reported_by, updated_by, blocks, relates_to, … */
+  type: BrainEdgeType
   weight?: number
   label?: string
 }

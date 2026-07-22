@@ -34,6 +34,7 @@ import AttendancePage from "@/pages/AttendancePage"
 import AttendancePoliciesPage from "@/pages/AttendancePoliciesPage"
 import EscalationsPage from "@/pages/EscalationsPage"
 import MeetingsPage from "@/pages/MeetingsPage"
+import GmailPage from "@/pages/GmailPage"
 import BrainMapPage from "@/pages/BrainMapPage"
 
 function App() {
@@ -121,6 +122,7 @@ function App() {
         />
         <Route path="/work" element={<WorkUnitsPage />} />
         <Route path="/meetings" element={<MeetingsPage />} />
+        <Route path="/gmail" element={<GmailPage />} />
         <Route path="/brain" element={<BrainMapPage />} />
         <Route path="/visions" element={<VisionsPage />} />
         <Route path="/kpis" element={<KPIsPage />} />
