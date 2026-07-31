@@ -3,6 +3,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { teamsApi, usersApi, visionsApi } from "@/lib/api"
 import type { Team, User, Vision, VisionHorizon, VisionScope } from "@/types"
 import { canManageVision } from "@/types"
+import { formatRoleLabel } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -325,7 +326,7 @@ export default function VisionsPage() {
           ) : (
             <p className="mx-auto mt-4 max-w-md text-xs text-muted-foreground">
               Only Admin or Chief of Staff can upload visions. You are signed in as{" "}
-              <span className="font-medium text-foreground">{user?.role.name.replace(/_/g, " ")}</span>.
+              <span className="font-medium text-foreground">{formatRoleLabel(user?.role.name)}</span>.
               Use Admin login or ask an admin to create one.
             </p>
           )}

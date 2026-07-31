@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { rolesApi } from "@/lib/api"
+import { formatRoleLabel } from "@/lib/utils"
+import type { User } from "@/types"
 import {
   Dialog,
   DialogContent,
@@ -13,17 +15,20 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { SearchableUserSelect } from "./SearchableUserSelect"
 
 export interface NewHireFormValues {
   name: string
   designation: string
   roleId: string
   email: string
+  managerUserId: string | null
 }
 
 interface NewHireDialogProps {
   open: boolean
   submitting?: boolean
+  managerOptions?: User[]
   onOpenChange: (open: boolean) => void
   onSubmit: (values: NewHireFormValues) => Promise<void> | void
 }
@@ -33,9 +38,16 @@ const emptyForm: NewHireFormValues = {
   designation: "",
   roleId: "",
   email: "",
+  managerUserId: null,
 }
 
-export function NewHireDialog({ open, submitting = false, onOpenChange, onSubmit }: NewHireDialogProps) {
+export function NewHireDialog({
+  open,
+  submitting = false,
+  managerOptions = [],
+  onOpenChange,
+  onSubmit,
+}: NewHireDialogProps) {
   const [form, setForm] = useState<NewHireFormValues>(emptyForm)
 
   const rolesQuery = useQuery({
@@ -67,6 +79,7 @@ export function NewHireDialog({ open, submitting = false, onOpenChange, onSubmit
       designation: form.designation.trim(),
       roleId: form.roleId,
       email: form.email.trim(),
+      managerUserId: form.managerUserId,
     })
   }
 
@@ -108,11 +121,24 @@ export function NewHireDialog({ open, submitting = false, onOpenChange, onSubmit
               <SelectContent>
                 {(rolesQuery.data ?? []).map((role) => (
                   <SelectItem key={role.id} value={role.id}>
-                    {role.name.replace(/_/g, " ")}
+                    {formatRoleLabel(role.name)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Manager</Label>
+            <SearchableUserSelect
+              users={managerOptions}
+              value={form.managerUserId}
+              onChange={(managerUserId) => setForm((prev) => ({ ...prev, managerUserId }))}
+              noneLabel="No manager yet"
+              placeholder="Select manager"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Sets where this box sits on the org chart. You can change it later.
+            </p>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="new-hire-email">Email (optional)</Label>

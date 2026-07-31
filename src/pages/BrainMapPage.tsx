@@ -2,8 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import ForceGraph2D, { type ForceGraphMethods, type NodeObject } from "react-force-graph-2d"
 import { formatDistanceToNow } from "date-fns"
+import { useAuth } from "@/contexts/AuthContext"
 import { graphApi } from "@/lib/api"
-import type { BrainEdge, BrainGraphData, BrainNode, BrainNodeType } from "@/types"
+import {
+  canManageEscalations,
+  type BrainEdge,
+  type BrainGraphData,
+  type BrainNode,
+  type BrainNodeType,
+} from "@/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
@@ -14,10 +21,13 @@ import {
   Search,
   X,
   ExternalLink,
+  TriangleAlert,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const CANVAS_BG = "#0b0d10"
+const ESCALATION_COLOR = "#E53E3E"
+const BLOCKS_EDGE_COLOR = "rgba(229, 62, 62, 0.75)"
 
 const COLOR_FALLBACK: Record<BrainNodeType, string> = {
   member: "#4C8BF5",
@@ -28,9 +38,10 @@ const COLOR_FALLBACK: Record<BrainNodeType, string> = {
   idea: "#FF6BCB",
   theme: "#A0AEC0",
   collaboration: "#E2E8F0",
+  escalation: ESCALATION_COLOR,
 }
 
-const TYPE_FILTERS: Array<{ key: BrainNodeType | "work"; label: string; types: BrainNodeType[] }> = [
+const BASE_TYPE_FILTERS: Array<{ key: string; label: string; types: BrainNodeType[] }> = [
   { key: "member", label: "Members", types: ["member"] },
   { key: "meeting", label: "Meetings", types: ["meeting"] },
   { key: "work", label: "Tasks", types: ["work_unit", "work_step"] },
@@ -40,14 +51,20 @@ const TYPE_FILTERS: Array<{ key: BrainNodeType | "work"; label: string; types: B
   { key: "collaboration", label: "Collaborations", types: ["collaboration"] },
 ]
 
-const LEGEND = [
-  { type: "member" as const, label: "Member" },
-  { type: "meeting" as const, label: "Meeting" },
-  { type: "work_unit" as const, label: "Task" },
-  { type: "project" as const, label: "Project" },
-  { type: "idea" as const, label: "Idea" },
-  { type: "theme" as const, label: "Theme" },
-  { type: "collaboration" as const, label: "Collab" },
+const ESCALATION_FILTER = {
+  key: "escalation",
+  label: "Escalations",
+  types: ["escalation"] as BrainNodeType[],
+}
+
+const BASE_LEGEND: Array<{ type: BrainNodeType; label: string }> = [
+  { type: "member", label: "Member" },
+  { type: "meeting", label: "Meeting" },
+  { type: "work_unit", label: "Task" },
+  { type: "project", label: "Project" },
+  { type: "idea", label: "Idea" },
+  { type: "theme", label: "Theme" },
+  { type: "collaboration", label: "Collab" },
 ]
 
 const LABEL_VAL_THRESHOLD = 6
@@ -74,6 +91,9 @@ type GraphLink = {
 }
 
 function nodeColor(node: BrainNode): string {
+  if (node.type === "escalation") {
+    return (typeof node.meta?.color === "string" && node.meta.color) || ESCALATION_COLOR
+  }
   return (typeof node.meta?.color === "string" && node.meta.color) || COLOR_FALLBACK[node.type] || "#A0AEC0"
 }
 
@@ -106,7 +126,46 @@ function typeLabel(type: BrainNodeType): string {
   return type.replace(/_/g, " ")
 }
 
+function parseBlockers(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw.map(String).filter(Boolean)
+  if (typeof raw !== "string" || !raw.trim()) return []
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean)
+  } catch {
+    /* plain text fallback */
+  }
+  return [raw]
+}
+
+function formatMetaDate(iso: unknown): string | null {
+  if (typeof iso !== "string" || !iso) return null
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toLocaleString()
+}
+
+function linkStroke(link: GraphLink, focused: boolean): { color: string; width: number; opacity: number } {
+  const isBlocks = link.type === "blocks"
+  const baseOpacity = (focused ? 0.45 : DIM_OPACITY * 0.6) * (0.4 + link.weight * 0.6)
+  if (isBlocks) {
+    return {
+      color: BLOCKS_EDGE_COLOR,
+      width: 1.6 + link.weight * 2.2,
+      opacity: focused ? 0.85 : 0.25,
+    }
+  }
+  return {
+    color: "rgba(148, 163, 184, 0.55)",
+    width: 0.4 + link.weight * 1.4,
+    opacity: baseOpacity,
+  }
+}
+
 export default function BrainMapPage() {
+  const { user } = useAuth()
+  const canSeeEscalations = canManageEscalations(user)
+
   const containerRef = useRef<HTMLDivElement>(null)
   const graphRef = useRef<ForceGraphMethods<NodeObject<GraphNode>, GraphLink> | undefined>(undefined)
 
@@ -117,7 +176,7 @@ export default function BrainMapPage() {
   const [rebuilding, setRebuilding] = useState(false)
 
   const [enabledTypes, setEnabledTypes] = useState<Set<string>>(
-    () => new Set(TYPE_FILTERS.map((f) => f.key))
+    () => new Set([...BASE_TYPE_FILTERS.map((f) => f.key), ESCALATION_FILTER.key])
   )
   const [showAllLabels, setShowAllLabels] = useState(false)
   const [includeSteps, setIncludeSteps] = useState(false)
@@ -177,15 +236,39 @@ export default function BrainMapPage() {
 
   const baseGraph = useMemo(() => (raw ? toGraphData(raw) : { nodes: [], links: [] }), [raw])
 
+  const hasEscalationNodes = useMemo(
+    () => baseGraph.nodes.some((n) => n.type === "escalation"),
+    [baseGraph.nodes]
+  )
+
+  // Escalations only appear for admin/CoS (BE-gated). Hide legend/filter when none in payload
+  // or when the current role can't manage escalations (same gate as Attendance).
+  const showEscalationFilter = canSeeEscalations && hasEscalationNodes
+
+  const typeFilters = useMemo(
+    () => (showEscalationFilter ? [...BASE_TYPE_FILTERS, ESCALATION_FILTER] : BASE_TYPE_FILTERS),
+    [showEscalationFilter]
+  )
+
+  const legendItems = useMemo(
+    () =>
+      showEscalationFilter
+        ? [...BASE_LEGEND, { type: "escalation" as const, label: "Escalation" }]
+        : BASE_LEGEND,
+    [showEscalationFilter]
+  )
+
   const allowedTypes = useMemo(() => {
     const types = new Set<BrainNodeType>()
-    for (const filter of TYPE_FILTERS) {
+    for (const filter of typeFilters) {
       if (enabledTypes.has(filter.key)) {
         for (const t of filter.types) types.add(t)
       }
     }
+    // Non-admins (or empty escalation payload): never render escalation nodes even if present.
+    if (!showEscalationFilter) types.delete("escalation")
     return types
-  }, [enabledTypes])
+  }, [enabledTypes, showEscalationFilter, typeFilters])
 
   const filteredGraph = useMemo(() => {
     const nodes = baseGraph.nodes.filter((n) => allowedTypes.has(n.type))
@@ -318,13 +401,12 @@ export default function BrainMapPage() {
       const focused =
         !neighborIds ||
         (neighborIds.has(source.id) && neighborIds.has(target.id))
-      const opacity = (focused ? 0.35 : DIM_OPACITY * 0.6) * (0.4 + link.weight * 0.6)
-      const width = 0.4 + link.weight * 1.4
+      const stroke = linkStroke(link, focused)
 
       ctx.save()
-      ctx.globalAlpha = opacity
-      ctx.strokeStyle = "rgba(148, 163, 184, 0.55)"
-      ctx.lineWidth = width
+      ctx.globalAlpha = stroke.opacity
+      ctx.strokeStyle = stroke.color
+      ctx.lineWidth = stroke.width
       ctx.beginPath()
       ctx.moveTo(source.x!, source.y!)
       ctx.lineTo(target.x!, target.y!)
@@ -352,8 +434,13 @@ export default function BrainMapPage() {
             nodeId="id"
             nodeVal="val"
             nodeRelSize={3}
-            linkWidth={(l) => 0.4 + ((l as GraphLink).weight ?? 0.5) * 1.4}
-            linkColor={() => "rgba(148,163,184,0.25)"}
+            linkWidth={(l) => {
+              const link = l as GraphLink
+              return link.type === "blocks" ? 1.6 + link.weight * 2.2 : 0.4 + link.weight * 1.4
+            }}
+            linkColor={(l) =>
+              (l as GraphLink).type === "blocks" ? BLOCKS_EDGE_COLOR : "rgba(148,163,184,0.25)"
+            }
             linkDirectionalParticles={0}
             cooldownTicks={120}
             d3AlphaDecay={0.022}
@@ -489,7 +576,7 @@ export default function BrainMapPage() {
           </div>
 
           <div className="mt-2 flex flex-wrap gap-1">
-            {TYPE_FILTERS.map((filter) => {
+            {typeFilters.map((filter) => {
               const on = enabledTypes.has(filter.key)
               const color = COLOR_FALLBACK[filter.types[0]]
               return (
@@ -563,7 +650,7 @@ export default function BrainMapPage() {
       <div className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-xl border border-slate-700/40 bg-[#12151a]/75 px-3 py-2 text-[10px] text-slate-300 backdrop-blur sm:bottom-4 sm:left-4">
         <p className="mb-1.5 font-medium tracking-wide text-slate-400">Legend</p>
         <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-          {LEGEND.map((item) => (
+          {legendItems.map((item) => (
             <div key={item.type} className="flex items-center gap-1.5">
               <span
                 className="h-2 w-2 rounded-full"
@@ -716,6 +803,86 @@ export default function BrainMapPage() {
                   <Button asChild size="sm" variant="outline" className="border-slate-600 bg-transparent">
                     <Link to={`/projects/${selected.meta.entityId}`}>
                       Open project
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Link>
+                  </Button>
+                ) : null}
+              </>
+            )}
+
+            {selected.type === "escalation" && (
+              <>
+                <div className="flex flex-wrap items-center gap-2">
+                  <TriangleAlert className="h-3.5 w-3.5 text-[#E53E3E]" />
+                  {selected.meta.status ? (
+                    <span className="rounded-full border border-red-500/40 bg-red-500/10 px-2 py-0.5 text-[11px] capitalize text-red-300">
+                      {String(selected.meta.status).replace(/_/g, " ")}
+                    </span>
+                  ) : null}
+                  {selected.meta.priority ? (
+                    <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[11px] capitalize text-amber-200">
+                      {String(selected.meta.priority)}
+                    </span>
+                  ) : null}
+                </div>
+
+                {selected.meta.aiSummary ? (
+                  <div>
+                    <p className="mb-1 text-[11px] uppercase tracking-wide text-slate-500">Summary</p>
+                    <p className="text-sm leading-relaxed text-slate-300">
+                      {String(selected.meta.aiSummary)}
+                    </p>
+                  </div>
+                ) : null}
+
+                {(() => {
+                  const blockers = parseBlockers(selected.meta.aiBlockers)
+                  if (blockers.length === 0) return null
+                  return (
+                    <div>
+                      <p className="mb-1 text-[11px] uppercase tracking-wide text-slate-500">Blockers</p>
+                      <ul className="list-disc space-y-1 pl-4 text-sm text-slate-300">
+                        {blockers.map((b, i) => (
+                          <li key={`${i}-${b.slice(0, 24)}`}>{b}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )
+                })()}
+
+                {(selected.meta.reporterName || selected.meta.reporterEmail) && (
+                  <p>
+                    <span className="text-slate-500">Reporter · </span>
+                    {selected.meta.reporterName
+                      ? String(selected.meta.reporterName)
+                      : null}
+                    {selected.meta.reporterEmail ? (
+                      <span className="text-slate-400">
+                        {selected.meta.reporterName ? " · " : ""}
+                        {String(selected.meta.reporterEmail)}
+                      </span>
+                    ) : null}
+                  </p>
+                )}
+
+                {formatMetaDate(selected.meta.latestUpdateAt) ? (
+                  <p>
+                    <span className="text-slate-500">Latest update · </span>
+                    {formatMetaDate(selected.meta.latestUpdateAt)}
+                  </p>
+                ) : null}
+
+                {formatMetaDate(selected.meta.resolvedAt) ? (
+                  <p>
+                    <span className="text-slate-500">Resolved · </span>
+                    {formatMetaDate(selected.meta.resolvedAt)}
+                  </p>
+                ) : null}
+
+                {selected.meta.entityId ? (
+                  <Button asChild size="sm" variant="outline" className="border-slate-600 bg-transparent">
+                    <Link to="/escalations">
+                      Open in Escalations
                       <ExternalLink className="h-3.5 w-3.5" />
                     </Link>
                   </Button>

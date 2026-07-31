@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } fro
 import { createPortal } from "react-dom"
 import { toPng } from "html-to-image"
 import {
-  addEdge,
   applyEdgeChanges,
   applyNodeChanges,
   Background,
@@ -24,23 +23,28 @@ import {
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 import { toast } from "sonner"
-import { X, Download, Undo2, Redo2, Save, Upload, Sparkles, Maximize2, Minimize2, UserPlus } from "lucide-react"
+import { X, Download, Undo2, Redo2, Save, Upload, Sparkles, Maximize2, Minimize2, UserPlus, Eye } from "lucide-react"
 import type { HierarchyKind, HierarchyMember, MemberRole, User } from "@/types"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { OrgChartView } from "./OrgChartView"
 import { NodeInspector } from "./NodeInspector"
 import { NEW_HIRE_DRAG_MIME, UserPalette } from "./UserPalette"
 import { NewHireDialog, type NewHireFormValues } from "./NewHireDialog"
+import { ReparentTeamDialog, type ReparentTeamPrompt } from "./ReparentTeamDialog"
 import {
   applyAutoLayout,
   buildEdgesFromMembers,
   buildNodesFromMembers,
   createHierarchyEdge,
+  getDirectReportNodeIds,
   getManagerNodeId,
   getRootNodeIds,
   isConnectionValid,
+  reparentNodeEdges,
   type HierarchyNodeData,
+  type ReparentMode,
   validateHierarchyGraph,
   NODE_HEIGHT,
   NODE_WIDTH,
@@ -95,11 +99,13 @@ const LEVEL_COLORS = [
   { border: "#4a3f2a", glow: "rgba(74, 63, 42, 0.18)" }, // L5+
 ]
 
-const DEFAULT_FIT_PADDING = 0.62
-const FULLSCREEN_FIT_PADDING = 0.12
+const DEFAULT_FIT_PADDING = 0.18
+const FULLSCREEN_FIT_PADDING = 0.1
 /** Default React Flow minZoom is 0.5; 0.125 allows ~300% more zoom-out. */
 const MIN_ZOOM = 0.125
 const MAX_ZOOM = 2.5
+/** Cap the initial auto-fit so small trees don't render as tiny specks. */
+const INITIAL_FIT_MAX_ZOOM = 1.1
 
 function HierarchyNodeCard({ id, data }: NodeProps<Node<CanvasNodeData>>) {
   const isPlaceholder = Boolean(data.user.isPlaceholder)
@@ -213,7 +219,14 @@ function HierarchyCanvasInner({
   const [newHireSubmitting, setNewHireSubmitting] = useState(false)
   const [convertingPlaceholder, setConvertingPlaceholder] = useState(false)
   const [pendingNewHirePosition, setPendingNewHirePosition] = useState<{ x: number; y: number } | null>(null)
+  const [reparentPrompt, setReparentPrompt] = useState<ReparentTeamPrompt | null>(null)
+  const [pendingReparent, setPendingReparent] = useState<{
+    movedNodeId: string
+    newManagerNodeId: string | null
+    nextNodes?: Node<HierarchyNodeData>[]
+  } | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [mode, setMode] = useState<"view" | "edit">("view")
   const [past, setPast] = useState<Snapshot[]>([])
   const [future, setFuture] = useState<Snapshot[]>([])
 
@@ -261,13 +274,13 @@ function HierarchyCanvasInner({
     hasInitialFitRef.current = true
     setTimeout(() => {
       flowRef.current?.fitView({
-        padding: DEFAULT_FIT_PADDING,
+        padding: isFullscreen ? FULLSCREEN_FIT_PADDING : DEFAULT_FIT_PADDING,
         duration: 0,
         minZoom: MIN_ZOOM,
-        maxZoom: 0.72,
+        maxZoom: INITIAL_FIT_MAX_ZOOM,
       })
     }, 80)
-  }, [nodes, edges, kind, contextId])
+  }, [nodes, edges, kind, contextId, isFullscreen])
 
   const pushSnapshot = useCallback(() => {
     setPast((prev) => [...prev.slice(-40), { nodes, edges }])
@@ -370,17 +383,113 @@ function HierarchyCanvasInner({
     [pushSnapshot]
   )
 
-  const onConnect = useCallback(
-    (connection: Connection) => {
-      const result = isConnectionValid(connection, edges)
-      if (!result.valid) {
-        toast.error(result.reason ?? "Invalid hierarchy connection")
+  const applyReparent = useCallback(
+    async (
+      movedNodeId: string,
+      newManagerNodeId: string | null,
+      mode: ReparentMode,
+      nextNodes?: Node<HierarchyNodeData>[]
+    ) => {
+      const workingNodes = nextNodes ?? nodes
+      const edgesForValidation =
+        mode === "user_only"
+          ? edges.filter((edge) => edge.target !== movedNodeId && edge.source !== movedNodeId)
+          : edges.filter((edge) => edge.target !== movedNodeId)
+
+      if (newManagerNodeId) {
+        const result = isConnectionValid(
+          {
+            source: newManagerNodeId,
+            target: movedNodeId,
+            sourceHandle: null,
+            targetHandle: null,
+          },
+          edgesForValidation
+        )
+        if (!result.valid) {
+          toast.error(result.reason ?? "Invalid manager")
+          return
+        }
+      }
+
+      // Org hierarchy: persist reparent semantics on the backend, then reload.
+      if (kind === "user") {
+        const movedNode = workingNodes.find((node) => node.id === movedNodeId)
+        if (!movedNode) return
+        const newManagerUserId = newManagerNodeId
+          ? workingNodes.find((node) => node.id === newManagerNodeId)?.data.user.id ?? null
+          : null
+
+        try {
+          await usersApi.setManager(movedNode.data.user.id, {
+            managerUserId: newManagerUserId,
+            reportMode: mode === "user_only" ? "reattach_to_previous" : "with_user",
+          })
+          await onReload()
+          toast.success(
+            mode === "user_only"
+              ? "Moved user; their reports were left with the previous manager"
+              : "Moved user and their team"
+          )
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : "Failed to update manager")
+        }
         return
       }
+
       pushSnapshot()
-      setEdges((prev) => addEdge(createHierarchyEdge(connection.source!, connection.target!), prev))
+      if (nextNodes) setNodes(nextNodes)
+      setEdges(reparentNodeEdges(edges, movedNodeId, newManagerNodeId, mode))
     },
-    [edges, pushSnapshot]
+    [nodes, edges, pushSnapshot, kind, onReload]
+  )
+
+  const requestReparent = useCallback(
+    (
+      movedNodeId: string,
+      newManagerNodeId: string | null,
+      nextNodes?: Node<HierarchyNodeData>[]
+    ) => {
+      const workingNodes = nextNodes ?? nodes
+      const movedNode = workingNodes.find((node) => node.id === movedNodeId)
+      if (!movedNode) return
+
+      const oldManagerNodeId = getManagerNodeId(movedNodeId, edges)
+      if (oldManagerNodeId === newManagerNodeId) return
+
+      const reportIds = getDirectReportNodeIds(movedNodeId, edges)
+      const isRealUser = !movedNode.data.user.isPlaceholder
+
+      if (isRealUser && reportIds.length > 0) {
+        const previousManagerName = oldManagerNodeId
+          ? workingNodes.find((node) => node.id === oldManagerNodeId)?.data.user.name ?? null
+          : null
+        const newManagerName = newManagerNodeId
+          ? workingNodes.find((node) => node.id === newManagerNodeId)?.data.user.name ?? null
+          : null
+
+        setPendingReparent({ movedNodeId, newManagerNodeId, nextNodes })
+        setReparentPrompt({
+          personName: movedNode.data.user.name,
+          reportCount: reportIds.length,
+          previousManagerName,
+          newManagerName,
+        })
+        return
+      }
+
+      applyReparent(movedNodeId, newManagerNodeId, "with_team", nextNodes)
+    },
+    [nodes, edges, applyReparent]
+  )
+
+  const onConnect = useCallback(
+    (connection: Connection) => {
+      if (!connection.source || !connection.target) return
+      // Allow re-parenting by replacing the existing manager edge.
+      requestReparent(connection.target, connection.source)
+    },
+    [requestReparent]
   )
 
   const selectedNode = selectedNodeId ? nodes.find((node) => node.id === selectedNodeId) ?? null : null
@@ -410,6 +519,13 @@ function HierarchyCanvasInner({
     byId.delete(selectedNode.data.user.id)
     return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name))
   }, [selectedNode, users, nodes])
+
+  const newHireManagerOptions = useMemo(() => {
+    const byId = new Map<string, User>()
+    users.forEach((user) => byId.set(user.id, user))
+    nodes.forEach((node) => byId.set(node.data.user.id, node.data.user))
+    return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name))
+  }, [users, nodes])
 
   const setManagerByUserId = useCallback(
     (managerUserId: string | null) => {
@@ -448,35 +564,19 @@ function HierarchyCanvasInner({
         }
       }
 
-      const withoutIncoming = edges.filter((edge) => edge.target !== selectedNodeId)
-      if (!managerNodeId) {
-        pushSnapshot()
-        if (nextNodes !== nodes) setNodes(nextNodes)
-        setEdges(withoutIncoming)
-        return
-      }
-
-      const result = isConnectionValid(
-        { source: managerNodeId, target: selectedNodeId, sourceHandle: null, targetHandle: null },
-        withoutIncoming
+      requestReparent(
+        selectedNodeId,
+        managerNodeId,
+        nextNodes === nodes ? undefined : nextNodes
       )
-      if (!result.valid) {
-        toast.error(result.reason ?? "Invalid manager")
-        return
-      }
-
-      pushSnapshot()
-      if (nextNodes !== nodes) setNodes(nextNodes)
-      setEdges([...withoutIncoming, createHierarchyEdge(managerNodeId, selectedNodeId)])
     },
-    [selectedNodeId, selectedNode, nodes, edges, userById, contextId, kind, pushSnapshot]
+    [selectedNodeId, selectedNode, nodes, userById, contextId, kind, requestReparent]
   )
 
   const setTopLevel = useCallback(() => {
     if (!selectedNodeId) return
-    pushSnapshot()
-    setEdges((prev) => prev.filter((edge) => edge.target !== selectedNodeId))
-  }, [selectedNodeId, pushSnapshot])
+    requestReparent(selectedNodeId, null)
+  }, [selectedNodeId, requestReparent])
 
   const saveHierarchy = useCallback(
     async (mode: "draft" | "publish") => {
@@ -734,7 +834,6 @@ function HierarchyCanvasInner({
 
   const handleCreateNewHire = useCallback(
     async (values: NewHireFormValues) => {
-      const position = pendingNewHirePosition ?? { x: 120, y: 120 }
       setNewHireSubmitting(true)
       try {
         const user = await usersApi.createNewHire({
@@ -742,36 +841,25 @@ function HierarchyCanvasInner({
           designation: values.designation || undefined,
           roleId: values.roleId,
           email: values.email || undefined,
+          managerUserId: values.managerUserId,
         })
 
-        const newNode: Node<HierarchyNodeData> = {
-          id: user.id,
-          type: "hierarchyNode",
-          position,
-          data: {
-            memberId: user.id,
-            user: { ...user, isPlaceholder: true },
-            memberRole: "MEMBER",
-            isActive: user.isActive,
-            contextId,
-            kind,
-          },
-        }
-
-        pushSnapshot()
-        setNodes((prev) => [...prev, newNode])
-        setOriginalNodes((prev) => [...prev, newNode])
-        setSelectedNodeId(user.id)
         setNewHireOpen(false)
         setPendingNewHirePosition(null)
-        toast.success("New hire box added — connect a manager, then publish")
+        setSelectedNodeId(user.id)
+        await onReload()
+        toast.success(
+          values.managerUserId
+            ? "New hire box added under the selected manager"
+            : "New hire box added — connect a manager if needed"
+        )
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Failed to create new hire")
       } finally {
         setNewHireSubmitting(false)
       }
     },
-    [pendingNewHirePosition, pushSnapshot, contextId, kind]
+    [onReload]
   )
 
   const handleConvertPlaceholder = useCallback(
@@ -836,6 +924,10 @@ function HierarchyCanvasInner({
 
   if (loading) return <div className="rounded-lg border border-border p-6 text-sm text-muted-foreground">Loading hierarchy...</div>
 
+  if (mode === "view") {
+    return <OrgChartView members={enrichedMembers} kind={kind} onEdit={() => setMode("edit")} />
+  }
+
   const canvas = (
     <div
       ref={shellRef}
@@ -853,6 +945,9 @@ function HierarchyCanvasInner({
             : "flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2.5"
         }
       >
+        <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setMode("view")}>
+          <Eye className="h-3.5 w-3.5" /> <span className="hidden sm:inline">View</span>
+        </Button>
         <Button size="sm" variant="outline" className="gap-1.5" disabled={past.length === 0} onClick={undo}>
           <Undo2 className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Undo</span>
         </Button>
@@ -1003,11 +1098,33 @@ function HierarchyCanvasInner({
       <NewHireDialog
         open={newHireOpen}
         submitting={newHireSubmitting}
+        managerOptions={newHireManagerOptions}
         onOpenChange={(open) => {
           setNewHireOpen(open)
           if (!open) setPendingNewHirePosition(null)
         }}
         onSubmit={handleCreateNewHire}
+      />
+
+      <ReparentTeamDialog
+        open={!!reparentPrompt}
+        prompt={reparentPrompt}
+        onCancel={() => {
+          setReparentPrompt(null)
+          setPendingReparent(null)
+        }}
+        onConfirm={(mode) => {
+          if (!pendingReparent) return
+          const pending = pendingReparent
+          setReparentPrompt(null)
+          setPendingReparent(null)
+          void applyReparent(
+            pending.movedNodeId,
+            pending.newManagerNodeId,
+            mode,
+            pending.nextNodes
+          )
+        }}
       />
 
       <Dialog

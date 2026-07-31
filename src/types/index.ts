@@ -1202,6 +1202,82 @@ export interface GmailSyncResult {
   messages: GmailMessage[]
 }
 
+// ---------- Org Events (multi-source timeline) ----------
+
+export type OrgEventKind = "MANUAL" | "AUTO"
+export type OrgEventStatus = "planned" | "active" | "completed" | "cancelled"
+export type OrgEventSourceType =
+  | "GMAIL"
+  | "MEETING"
+  | "ESCALATION"
+  | "WORK_UNIT"
+  | "MANUAL"
+
+export interface OrgEventUpdate {
+  id: string
+  sourceType: OrgEventSourceType | string
+  sourceId: string
+  title: string | null
+  body: string
+  actorUserId: string | null
+  actorName: string | null
+  actor: { id: string; name: string; email: string } | null
+  occurredAt: string
+  metadata: Record<string, unknown> | null
+  createdAt: string
+}
+
+export interface OrgEvent {
+  id: string
+  title: string
+  description: string | null
+  kind: OrgEventKind | string
+  status: OrgEventStatus | string
+  startsAt: string | null
+  endsAt: string | null
+  createdById: string | null
+  createdBy: { id: string; name: string; email: string } | null
+  aiSummary: string | null
+  aiAnalyzedAt: string | null
+  confidence: number | null
+  latestUpdateAt: string | null
+  createdAt: string
+  updatedAt: string
+  updateCount: number
+  latestUpdate: OrgEventUpdate | null
+  updates?: OrgEventUpdate[]
+}
+
+export interface OrgEventsListData {
+  events: OrgEvent[]
+  summary: {
+    total: number
+    manual: number
+    auto: number
+    active: number
+  }
+}
+
+export interface OrgEventDetectResult {
+  scanned: number
+  created: number
+  attached: number
+  /** True when detection was skipped because no new source activity was found. */
+  skipped: boolean
+  events: OrgEvent[]
+}
+
+export interface OrgEventSourceCandidate {
+  sourceType: Exclude<OrgEventSourceType, "MANUAL">
+  sourceId: string
+  title: string
+  body: string
+  actorUserId: string | null
+  actorName: string | null
+  occurredAt: string
+  metadata: Record<string, unknown> | null
+}
+
 // ---------- Brain map (Obsidian-style graph) ----------
 
 export type BrainNodeType =
@@ -1278,4 +1354,84 @@ export interface BrainGraphParams {
   to?: string
   limitMeetings?: number
   includeSteps?: boolean
+}
+
+// ---------- Preread ----------
+
+export type PrereadNodeKind = "output" | "blocker" | "advice"
+export type PrereadAccess = "owner" | "member"
+
+export interface PrereadUserSummary {
+  id: string
+  name: string
+  email: string
+  avatarUrl?: string | null
+  designation?: string | null
+}
+
+export interface PrereadMember {
+  userId: string
+  user: PrereadUserSummary
+  createdAt: string
+}
+
+export interface PrereadMedia {
+  id: string
+  nodeId: string
+  filename: string
+  mimeType: string
+  sizeBytes: number
+  mediaType: "image" | "video"
+  createdAt: string
+  uploadedBy: PrereadUserSummary
+}
+
+export interface PrereadComment {
+  id: string
+  nodeId: string
+  body: string
+  createdAt: string
+  author: PrereadUserSummary
+}
+
+export interface PrereadTreeNode {
+  id: string
+  prereadId: string
+  parentId: string | null
+  title: string
+  description: string | null
+  kind: PrereadNodeKind
+  orderIndex: number
+  createdAt: string
+  updatedAt: string
+  comments: PrereadComment[]
+  media: PrereadMedia[]
+  children: PrereadTreeNode[]
+}
+
+export interface PrereadSummary {
+  id: string
+  title: string
+  description: string | null
+  ownerId: string
+  owner: PrereadUserSummary
+  access: PrereadAccess
+  memberCount: number
+  nodeCount: number
+  members: PrereadMember[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface PrereadDetail {
+  id: string
+  title: string
+  description: string | null
+  ownerId: string
+  owner: PrereadUserSummary
+  access: PrereadAccess
+  members: PrereadMember[]
+  tree: PrereadTreeNode[]
+  createdAt: string
+  updatedAt: string
 }

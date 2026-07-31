@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { NotificationDetailDialog } from "@/components/notifications/NotificationDetailDialog"
+import { formatRelativeTime } from "@/lib/utils"
 
 const REFRESH_INTERVAL_MS = 30_000
 const PAGE_SIZE = 20
@@ -37,16 +38,8 @@ const LIST_KEY = ["notifications", "list"] as const
 const UNREAD_KEY = ["notifications", "unread-count"] as const
 
 function formatRelative(iso: string) {
-  const then = new Date(iso).getTime()
-  if (Number.isNaN(then)) return ""
-  const diffSec = Math.round((Date.now() - then) / 1000)
-  if (diffSec < 45) return "just now"
-  if (diffSec < 90) return "1m ago"
-  if (diffSec < 3600) return `${Math.round(diffSec / 60)}m ago`
-  if (diffSec < 5400) return "1h ago"
-  if (diffSec < 86400) return `${Math.round(diffSec / 3600)}h ago`
-  if (diffSec < 172800) return "1d ago"
-  return `${Math.round(diffSec / 86400)}d ago`
+  const value = formatRelativeTime(iso)
+  return value === "—" ? "" : value
 }
 
 interface KindIconProps {

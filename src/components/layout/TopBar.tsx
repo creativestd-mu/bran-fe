@@ -13,6 +13,7 @@ import {
 import { LogOut, Menu, User, Moon, Sun, Search } from "lucide-react"
 import { useTheme } from "@/contexts/ThemeContext"
 import { NotificationsMenu } from "@/components/layout/NotificationsMenu"
+import { formatRoleLabel } from "@/lib/utils"
 
 interface TopBarProps {
   onMenuClick: () => void
@@ -130,7 +131,7 @@ export function TopBar({ onMenuClick, onSearchOpen }: TopBarProps) {
                 <div className="hidden min-w-0 items-start gap-1.5 lg:flex lg:flex-col">
                   <span className="truncate text-sm font-medium leading-none">{user?.name}</span>
                   <span className="inline-flex items-center rounded-full border border-border/70 bg-card/55 px-2.5 py-1 text-[10px] capitalize leading-none text-muted-foreground">
-                    {user?.role.name.replace("_", " ")}
+                    {formatRoleLabel(user?.role.name)}
                   </span>
                 </div>
               </Button>

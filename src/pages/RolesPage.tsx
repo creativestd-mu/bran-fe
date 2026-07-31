@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
 import { Plus, Shield, Users, Trash2 } from "lucide-react"
 import { validateRequiredText } from "@/lib/validation"
+import { formatRoleLabel } from "@/lib/utils"
 
 const BUILTIN_ROLES = ["admin", "manager", "content_creator"]
 
@@ -138,7 +139,7 @@ export default function RolesPage() {
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">
                   <Shield className="h-5 w-5 text-accent" />
-                  <CardTitle className="text-lg capitalize">{role.name.replace("_", " ")}</CardTitle>
+                  <CardTitle className="text-lg">{formatRoleLabel(role.name)}</CardTitle>
                 </div>
                 {!BUILTIN_ROLES.includes(role.name) && (
                   <Button variant="ghost" size="icon" onClick={() => confirmDelete(role)} title="Delete role">
@@ -203,7 +204,7 @@ export default function RolesPage() {
           <DialogHeader>
             <DialogTitle>Delete role?</DialogTitle>
             <DialogDescription>
-              This will permanently delete the <span className="font-semibold">{deleteTarget?.name.replace("_", " ")}</span> role. This action cannot be undone.
+              This will permanently delete the <span className="font-semibold">{formatRoleLabel(deleteTarget?.name)}</span> role. This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -220,7 +221,7 @@ export default function RolesPage() {
       <Dialog open={!!editingRole} onOpenChange={() => setEditingRole(null)}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Permissions for {editingRole?.name.replace("_", " ")}</DialogTitle>
+            <DialogTitle>Permissions for {formatRoleLabel(editingRole?.name)}</DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
             {allPermissions.map((perm) => (

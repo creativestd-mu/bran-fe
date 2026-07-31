@@ -246,6 +246,49 @@ export function getManagerNodeId(nodeId: string, edges: Edge[]): string | null {
   return edges.find((edge) => edge.target === nodeId)?.source ?? null
 }
 
+export function getDirectReportNodeIds(nodeId: string, edges: Edge[]): string[] {
+  return edges.filter((edge) => edge.source === nodeId).map((edge) => edge.target)
+}
+
+export type ReparentMode = "with_team" | "user_only"
+
+/**
+ * Move `movedNodeId` under `newManagerNodeId` (or to top-level when null).
+ * - with_team: subtree stays under the moved user
+ * - user_only: direct reports are reattached to the moved user's previous manager
+ */
+export function reparentNodeEdges(
+  edges: Edge[],
+  movedNodeId: string,
+  newManagerNodeId: string | null,
+  mode: ReparentMode
+): Edge[] {
+  const oldManagerNodeId = getManagerNodeId(movedNodeId, edges)
+  const directReports = getDirectReportNodeIds(movedNodeId, edges)
+
+  let next = edges.filter((edge) => edge.target !== movedNodeId)
+
+  if (mode === "user_only" && directReports.length > 0) {
+    const reportIds = new Set(directReports)
+    next = next.filter((edge) => !(edge.source === movedNodeId && reportIds.has(edge.target)))
+
+    if (oldManagerNodeId) {
+      for (const reportId of directReports) {
+        if (reportId === oldManagerNodeId) continue
+        next = next.filter((edge) => edge.target !== reportId)
+        next.push(createHierarchyEdge(oldManagerNodeId, reportId))
+      }
+    }
+  }
+
+  if (newManagerNodeId) {
+    next = next.filter((edge) => edge.target !== movedNodeId)
+    next.push(createHierarchyEdge(newManagerNodeId, movedNodeId))
+  }
+
+  return next
+}
+
 export function toHierarchyPayloads(nodes: Node<HierarchyNodeData>[], edges: Edge[]): HierarchyNodePayload[] {
   return nodes.map((node) => {
     const managerNodeId = getManagerNodeId(node.id, edges)

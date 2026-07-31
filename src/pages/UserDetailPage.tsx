@@ -22,6 +22,9 @@ import {
   validateIndianPhone,
   validateRequiredText,
 } from "@/lib/validation"
+import { formatRoleLabel } from "@/lib/utils"
+import { ReparentTeamDialog, type ReparentTeamPrompt } from "@/components/hierarchy/ReparentTeamDialog"
+import type { ReparentMode } from "@/components/hierarchy/hierarchyUtils"
 
 export default function UserDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -45,6 +48,7 @@ export default function UserDetailPage() {
   const [saving, setSaving] = useState(false)
   const [addSocialOpen, setAddSocialOpen] = useState(false)
   const [socialForm, setSocialForm] = useState({ platform: "YOUTUBE" as string, platformAccountId: "", handle: "" })
+  const [reparentPrompt, setReparentPrompt] = useState<ReparentTeamPrompt | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -80,8 +84,35 @@ export default function UserDetailPage() {
     load()
   }, [id])
 
+  const persistProfile = async (reportMode?: "with_user" | "reattach_to_previous") => {
+    if (!id || !user) return
+    const payload: Parameters<typeof usersApi.update>[1] = {
+      name: editForm.name,
+      description: editForm.description,
+      phone: editForm.phone,
+      designation: editForm.designation,
+      roleId: editForm.roleId,
+    }
+
+    const managerChanged =
+      canManageUsers && editForm.managerUserId !== (user.managerUserId ?? null)
+
+    if (managerChanged) {
+      payload.managerUserId = editForm.managerUserId
+      payload.reportMode = reportMode ?? "with_user"
+    }
+
+    const updated = await usersApi.update(id, payload)
+    setUser(updated)
+    setEditForm((prev) => ({
+      ...prev,
+      managerUserId: updated.managerUserId ?? null,
+    }))
+    toast.success("User updated")
+  }
+
   const handleSave = async () => {
-    if (!id) return
+    if (!id || !user) return
     const validationError = firstValidationError(
       validateRequiredText(editForm.name, "Name"),
       validateIndianPhone(editForm.phone)
@@ -90,21 +121,41 @@ export default function UserDetailPage() {
       toast.error(validationError)
       return
     }
+
+    const managerChanged =
+      canManageUsers && editForm.managerUserId !== (user.managerUserId ?? null)
+    const reportCount = user.directReports?.length ?? 0
+
+    if (managerChanged && !user.isPlaceholder && reportCount > 0) {
+      const previousManagerName = user.manager?.name ?? null
+      const newManagerName =
+        editForm.managerUserId == null
+          ? null
+          : managerOptions.find((manager) => manager.id === editForm.managerUserId)?.name ?? null
+      setReparentPrompt({
+        personName: user.name,
+        reportCount,
+        previousManagerName,
+        newManagerName,
+      })
+      return
+    }
+
     setSaving(true)
     try {
-      const payload: Parameters<typeof usersApi.update>[1] = {
-        name: editForm.name,
-        description: editForm.description,
-        phone: editForm.phone,
-        designation: editForm.designation,
-        roleId: editForm.roleId,
-      }
-      if (canManageUsers) {
-        payload.managerUserId = editForm.managerUserId
-      }
-      const updated = await usersApi.update(id, payload)
-      setUser(updated)
-      toast.success("User updated")
+      await persistProfile(managerChanged ? "with_user" : undefined)
+    } catch {
+      toast.error("Failed to update user")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleReparentConfirm = async (mode: ReparentMode) => {
+    setReparentPrompt(null)
+    setSaving(true)
+    try {
+      await persistProfile(mode === "user_only" ? "reattach_to_previous" : "with_user")
     } catch {
       toast.error("Failed to update user")
     } finally {
@@ -172,7 +223,7 @@ export default function UserDetailPage() {
           <h1 className="text-xl font-semibold">{user.name}</h1>
           <p className="text-sm text-muted-foreground">{user.email}</p>
           <div className="mt-1 flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className="capitalize">{user.role.name.replace("_", " ")}</Badge>
+            <Badge variant="outline">{formatRoleLabel(user.role.name)}</Badge>
             {user.manager && (
               <Badge variant="secondary" className="text-xs">
                 Reports to {user.manager.name}
@@ -221,7 +272,11 @@ export default function UserDetailPage() {
                   <Select value={editForm.roleId} onValueChange={(v) => setEditForm((p) => ({ ...p, roleId: v }))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {roles.map((r) => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+                      {roles.map((r) => (
+                        <SelectItem key={r.id} value={r.id}>
+                          {formatRoleLabel(r.name)}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -346,6 +401,15 @@ export default function UserDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <ReparentTeamDialog
+        open={!!reparentPrompt}
+        prompt={reparentPrompt}
+        onCancel={() => setReparentPrompt(null)}
+        onConfirm={(mode) => {
+          void handleReparentConfirm(mode)
+        }}
+      />
     </div>
   )
 }

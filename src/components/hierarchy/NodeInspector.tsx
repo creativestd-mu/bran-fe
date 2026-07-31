@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { formatRoleLabel } from "@/lib/utils"
 import type { HierarchyNodeData } from "./hierarchyUtils"
+import { SearchableUserSelect } from "./SearchableUserSelect"
 
 export interface ConvertPlaceholderValues {
   name: string
@@ -76,7 +78,7 @@ export function NodeInspector({
         .join("")
         .slice(0, 2)
         .toUpperCase()
-  const roleLabel = node.data.user.role?.name ? node.data.user.role.name.replace("_", " ") : "N/A"
+  const roleLabel = node.data.user.role?.name ? formatRoleLabel(node.data.user.role.name) : "N/A"
 
   const openConvert = () => {
     setConvertForm({
@@ -150,23 +152,13 @@ export function NodeInspector({
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground">Manager</p>
           {onManagerChange ? (
-            <Select
-              value={managerUserId ?? "none"}
-              onValueChange={(value) => onManagerChange(value === "none" ? null : value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="No manager" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No manager</SelectItem>
-                {managerOptions.map((manager) => (
-                  <SelectItem key={manager.id} value={manager.id}>
-                    {manager.name}
-                    {manager.isPlaceholder ? " (new hire)" : !manager.isActive ? " (inactive)" : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableUserSelect
+              users={managerOptions}
+              value={managerUserId}
+              onChange={onManagerChange}
+              noneLabel="No manager"
+              placeholder="Select manager"
+            />
           ) : (
             <p className="text-sm">{managerName ?? "Top-level leader"}</p>
           )}

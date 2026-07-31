@@ -198,8 +198,13 @@ export const usersApi = {
   },
   getHierarchy: (params?: { isActive?: boolean }) =>
     api.get<import("@/types").UserHierarchyResult>("/users/hierarchy", params as Record<string, unknown>),
-  upsertHierarchy: (data: { members: Array<{ userId: string; managerUserId?: string | null }> }) =>
-    api.put<import("@/types").UserHierarchyResult>("/users/hierarchy", data),
+  upsertHierarchy: (data: {
+    members: Array<{
+      userId: string
+      managerUserId?: string | null
+      reportMode?: "with_user" | "reattach_to_previous"
+    }>
+  }) => api.put<import("@/types").UserHierarchyResult>("/users/hierarchy", data),
   createNewHire: (data: {
     name?: string
     designation?: string
@@ -218,6 +223,13 @@ export const usersApi = {
     isActive?: boolean
   }) => api.post<import("@/types").User>("/users", data),
   getById: (id: string) => api.get<import("@/types").User>(`/users/${id}`),
+  setManager: (
+    id: string,
+    data: {
+      managerUserId: string | null
+      reportMode?: "with_user" | "reattach_to_previous"
+    }
+  ) => api.put<import("@/types").User>(`/users/${id}/manager`, data),
   update: (
     id: string,
     data: Partial<{
@@ -230,6 +242,7 @@ export const usersApi = {
       isPlaceholder: boolean
       email: string
       managerUserId: string | null
+      reportMode: "with_user" | "reattach_to_previous"
     }>
   ) => api.put<import("@/types").User>(`/users/${id}`, data),
   delete: (id: string) => api.delete(`/users/${id}`),
@@ -829,6 +842,58 @@ export const gmailApi = {
     ),
 }
 
+/** Org Events — /en/v1/events/* */
+export const eventsApi = {
+  list: (params?: {
+    status?: import("@/types").OrgEventStatus
+    kind?: import("@/types").OrgEventKind
+    limit?: number
+  }) =>
+    api.get<import("@/types").OrgEventsListData>(
+      "/events",
+      params as Record<string, unknown>
+    ),
+  get: (id: string) => api.get<import("@/types").OrgEvent>(`/events/${id}`),
+  create: (data: {
+    title: string
+    description?: string | null
+    status?: import("@/types").OrgEventStatus
+    startsAt?: string | null
+    endsAt?: string | null
+  }) => api.post<import("@/types").OrgEvent>("/events", data),
+  update: (
+    id: string,
+    data: {
+      title?: string
+      description?: string | null
+      status?: import("@/types").OrgEventStatus
+      startsAt?: string | null
+      endsAt?: string | null
+    }
+  ) => api.patch<import("@/types").OrgEvent>(`/events/${id}`, data),
+  remove: (id: string) => api.delete(`/events/${id}`),
+  attach: (
+    id: string,
+    data: {
+      sourceType: Exclude<import("@/types").OrgEventSourceType, "MANUAL">
+      sourceId: string
+    }
+  ) => api.post<import("@/types").OrgEvent>(`/events/${id}/attach`, data),
+  addNote: (id: string, data: { body: string; title?: string }) =>
+    api.post<import("@/types").OrgEvent>(`/events/${id}/notes`, data),
+  detect: (data?: { days?: number; maxCandidates?: number }) =>
+    api.post<import("@/types").OrgEventDetectResult>("/events/detect", data ?? {}),
+  unattachedSources: (params?: {
+    sourceType?: Exclude<import("@/types").OrgEventSourceType, "MANUAL">
+    days?: number
+    limit?: number
+  }) =>
+    api.get<{ sources: import("@/types").OrgEventSourceCandidate[] }>(
+      "/events/sources/unattached",
+      params as Record<string, unknown>
+    ),
+}
+
 function brainGraphQuery(params?: import("@/types").BrainGraphParams): string {
   if (!params) return ""
   const qs = new URLSearchParams()
@@ -852,4 +917,62 @@ export const graphApi = {
       `/graph/brain/rebuild${brainGraphQuery(params)}`,
       {}
     ),
+}
+
+/** Preread trees — /en/v1/prereads */
+export const prereadApi = {
+  list: () => api.get<import("@/types").PrereadSummary[]>("/prereads"),
+  create: (data: { title: string; description?: string }) =>
+    api.post<import("@/types").PrereadDetail>("/prereads", data),
+  get: (id: string) => api.get<import("@/types").PrereadDetail>(`/prereads/${id}`),
+  update: (id: string, data: { title?: string; description?: string | null }) =>
+    api.patch<import("@/types").PrereadDetail>(`/prereads/${id}`, data),
+  remove: (id: string) => api.delete(`/prereads/${id}`),
+  replaceMembers: (id: string, userIds: string[]) =>
+    api.put<import("@/types").PrereadMember[]>(`/prereads/${id}/members`, { userIds }),
+  createNode: (
+    id: string,
+    data: {
+      title: string
+      description?: string
+      kind?: import("@/types").PrereadNodeKind
+      parentId?: string | null
+      orderIndex?: number
+    }
+  ) => api.post<Omit<import("@/types").PrereadTreeNode, "children">>(`/prereads/${id}/nodes`, data),
+  updateNode: (
+    id: string,
+    nodeId: string,
+    data: {
+      title?: string
+      description?: string | null
+      kind?: import("@/types").PrereadNodeKind
+      parentId?: string | null
+      orderIndex?: number
+    }
+  ) =>
+    api.patch<Omit<import("@/types").PrereadTreeNode, "children">>(
+      `/prereads/${id}/nodes/${nodeId}`,
+      data
+    ),
+  deleteNode: (id: string, nodeId: string) =>
+    api.delete(`/prereads/${id}/nodes/${nodeId}`),
+  listComments: (id: string, nodeId: string) =>
+    api.get<import("@/types").PrereadComment[]>(`/prereads/${id}/nodes/${nodeId}/comments`),
+  createComment: (id: string, nodeId: string, body: string) =>
+    api.post<import("@/types").PrereadComment>(`/prereads/${id}/nodes/${nodeId}/comments`, { body }),
+  deleteComment: (id: string, nodeId: string, commentId: string) =>
+    api.delete(`/prereads/${id}/nodes/${nodeId}/comments/${commentId}`),
+  uploadMedia: (id: string, nodeId: string, file: File) => {
+    const form = new FormData()
+    form.append("file", file)
+    return api.postForm<import("@/types").PrereadMedia>(
+      `/prereads/${id}/nodes/${nodeId}/media`,
+      form
+    )
+  },
+  fetchMediaBlob: (id: string, nodeId: string, mediaId: string) =>
+    api.downloadBlob(`/prereads/${id}/nodes/${nodeId}/media/${mediaId}`),
+  deleteMedia: (id: string, nodeId: string, mediaId: string) =>
+    api.delete(`/prereads/${id}/nodes/${nodeId}/media/${mediaId}`),
 }

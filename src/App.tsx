@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom"
+import { Navigate, Route, Routes, useLocation } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
 import { useAutoHideScrollbars } from "@/hooks/useAutoHideScrollbars"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
@@ -33,9 +33,17 @@ import InventoryPage from "@/pages/InventoryPage"
 import AttendancePage from "@/pages/AttendancePage"
 import AttendancePoliciesPage from "@/pages/AttendancePoliciesPage"
 import EscalationsPage from "@/pages/EscalationsPage"
-import MeetingsPage from "@/pages/MeetingsPage"
-import GmailPage from "@/pages/GmailPage"
+import ConnectorsPage from "@/pages/ConnectorsPage"
+import EventsPage from "@/pages/EventsPage"
+import EventDetailPage from "@/pages/EventDetailPage"
 import BrainMapPage from "@/pages/BrainMapPage"
+import PrereadsPage from "@/pages/PrereadsPage"
+import PrereadDetailPage from "@/pages/PrereadDetailPage"
+
+function RedirectToConnectors() {
+  const { search } = useLocation()
+  return <Navigate to={`/connectors${search}`} replace />
+}
 
 function App() {
   const { user, loading } = useAuth()
@@ -121,9 +129,14 @@ function App() {
           }
         />
         <Route path="/work" element={<WorkUnitsPage />} />
-        <Route path="/meetings" element={<MeetingsPage />} />
-        <Route path="/gmail" element={<GmailPage />} />
+        <Route path="/connectors" element={<ConnectorsPage />} />
+        <Route path="/meetings" element={<RedirectToConnectors />} />
+        <Route path="/gmail" element={<RedirectToConnectors />} />
+        <Route path="/events" element={<EventsPage />} />
+        <Route path="/events/:id" element={<EventDetailPage />} />
         <Route path="/brain" element={<BrainMapPage />} />
+        <Route path="/preread" element={<PrereadsPage />} />
+        <Route path="/preread/:id" element={<PrereadDetailPage />} />
         <Route path="/visions" element={<VisionsPage />} />
         <Route path="/kpis" element={<KPIsPage />} />
         <Route
@@ -146,7 +159,7 @@ function App() {
         <Route
           path="/hierarchy"
           element={
-            <ProtectedRoute roles={["admin", "manager"]}>
+            <ProtectedRoute roles={["admin", "manager", "chief_of_staff"]}>
               <HierarchyPage />
             </ProtectedRoute>
           }

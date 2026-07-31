@@ -22,6 +22,7 @@ import {
   validateIndianPhone,
   validateRequiredText,
 } from "@/lib/validation"
+import { formatRoleLabel } from "@/lib/utils"
 
 type CreateUserApiError = {
   error?: string
@@ -184,7 +185,7 @@ export default function UsersPage() {
                 <SelectContent>
                   <SelectItem value="all">All Roles</SelectItem>
                   {roles.map((r) => (
-                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                    <SelectItem key={r.id} value={r.id}>{formatRoleLabel(r.name)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -233,7 +234,7 @@ export default function UsersPage() {
                         />
                       </div>
                       <div className="mt-2 flex flex-wrap gap-2">
-                        <Badge variant="outline" className="capitalize">{u.role.name.replace("_", " ")}</Badge>
+                        <Badge variant="outline">{formatRoleLabel(u.role.name)}</Badge>
                         {u.designation ? (
                           <Badge variant="secondary" className="text-[10px]">{u.designation}</Badge>
                         ) : null}
@@ -274,7 +275,7 @@ export default function UsersPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="capitalize">{u.role.name.replace("_", " ")}</Badge>
+                        <Badge variant="outline">{formatRoleLabel(u.role.name)}</Badge>
                       </TableCell>
                       <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
                         {u.designation || "—"}
@@ -377,7 +378,7 @@ export default function UsersPage() {
                 <SelectContent>
                   {roles.map((role) => (
                     <SelectItem key={role.id} value={role.id}>
-                      {role.name.replace("_", " ")}
+                      {formatRoleLabel(role.name)}
                     </SelectItem>
                   ))}
                 </SelectContent>

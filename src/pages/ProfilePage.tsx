@@ -18,6 +18,7 @@ import {
   validateIndianPhone,
   validateRequiredText,
 } from "@/lib/validation"
+import { formatRoleLabel } from "@/lib/utils"
 
 export default function ProfilePage() {
   const { user, refreshUser } = useAuth()
@@ -112,7 +113,7 @@ export default function ProfilePage() {
           <div>
             <p className="font-semibold text-lg">{user.name}</p>
             <p className="text-sm text-muted-foreground">{user.email}</p>
-            <Badge variant="outline" className="mt-1 capitalize">{user.role.name.replace("_", " ")}</Badge>
+            <Badge variant="outline" className="mt-1">{formatRoleLabel(user.role.name)}</Badge>
           </div>
         </CardHeader>
         <Separator />
