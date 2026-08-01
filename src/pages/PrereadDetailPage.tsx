@@ -184,30 +184,32 @@ export default function PrereadDetailPage() {
             Copy link
           </Button>
           {data.access === "owner" && (
-            <Button type="button" variant="outline" size="sm" onClick={() => setAccessOpen(true)}>
-              <UserPlus className="mr-2 h-4 w-4" />
-              Manage access
-            </Button>
-          )}
-          <Button type="button" size="sm" onClick={() => setAddNodeOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add node
-          </Button>
-          {selectedNodeId && (
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              disabled={deleteNodeMutation.isPending}
-              onClick={() => deleteNodeMutation.mutate(selectedNodeId)}
-            >
-              {deleteNodeMutation.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="mr-2 h-4 w-4" />
+            <>
+              <Button type="button" variant="outline" size="sm" onClick={() => setAccessOpen(true)}>
+                <UserPlus className="mr-2 h-4 w-4" />
+                Manage access
+              </Button>
+              <Button type="button" size="sm" onClick={() => setAddNodeOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add node
+              </Button>
+              {selectedNodeId && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  disabled={deleteNodeMutation.isPending}
+                  onClick={() => deleteNodeMutation.mutate(selectedNodeId)}
+                >
+                  {deleteNodeMutation.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="mr-2 h-4 w-4" />
+                  )}
+                  Delete selected
+                </Button>
               )}
-              Delete selected
-            </Button>
+            </>
           )}
         </div>
       </div>
