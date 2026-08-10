@@ -205,7 +205,12 @@ export default function TasksPage() {
       const updated = await tasksApi.update(task.id, { status: newStatus })
       setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)))
       if (detailTask?.id === task.id) setDetailTask(null)
-      toast.success(`Task moved to ${newStatus.replace("_", " ")}`)
+      // Mid-sentence casing — never show the raw enum ("COMPLETED").
+      const statusLabel = (
+        STATUS_COLUMNS.find((c) => c.key === newStatus)?.label ??
+        newStatus.replace(/_/g, " ")
+      ).toLowerCase()
+      toast.success(`Task moved to ${statusLabel}`)
     } catch {
       toast.error("Failed to update task")
     }
