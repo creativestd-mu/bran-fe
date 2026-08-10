@@ -204,7 +204,7 @@ export default function TasksPage() {
     try {
       const updated = await tasksApi.update(task.id, { status: newStatus })
       setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)))
-      if (detailTask?.id === task.id) setDetailTask(updated)
+      if (detailTask?.id === task.id) setDetailTask(null)
       toast.success(`Task moved to ${newStatus.replace("_", " ")}`)
     } catch {
       toast.error("Failed to update task")

@@ -248,7 +248,7 @@ export default function ContentDetailPage() {
             <div className="min-w-0 flex-1 space-y-1">
               <h1 className="break-words font-brand text-2xl tracking-wide text-accent">{content.title}</h1>
               {content.description && (
-                <p className="max-w-3xl whitespace-pre-wrap break-words text-sm leading-relaxed text-muted-foreground">
+                <p className="w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-relaxed text-muted-foreground">
                   {content.description}
                 </p>
               )}

@@ -194,11 +194,11 @@ export default function AdhocWorkPage() {
   }
 
   return (
-    <div className="mx-auto w-full space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
+    <div className="w-full max-w-none space-y-6">
+      <div className="flex items-start justify-between gap-4 px-0.5">
+        <div className="min-w-0">
           <h1 className="font-brand text-2xl tracking-wide text-accent">Adhoc Work</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
             Log off-platform work — shoots, coordination, deliverables.
           </p>
         </div>
@@ -211,8 +211,8 @@ export default function AdhocWorkPage() {
       </div>
 
       {isManager && (
-        <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border/60 bg-card/40 p-3">
-          <div className="min-w-[140px] flex-1 space-y-1">
+        <div className="flex flex-wrap items-end gap-4 rounded-lg border border-border/60 bg-card/40 p-4 sm:p-5">
+          <div className="min-w-[140px] flex-1 space-y-1.5">
             <Label className="text-xs text-muted-foreground">Person</Label>
             <Select
               value={filters.userId}
@@ -231,19 +231,21 @@ export default function AdhocWorkPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">From</Label>
-            <DateInput
-              value={filters.from}
-              onChange={(e) => setFilters((p) => ({ ...p, from: e.target.value }))}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">To</Label>
-            <DateInput
-              value={filters.to}
-              onChange={(e) => setFilters((p) => ({ ...p, to: e.target.value }))}
-            />
+          <div className="flex shrink-0 flex-wrap items-end gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">From</Label>
+              <DateInput
+                value={filters.from}
+                onChange={(e) => setFilters((p) => ({ ...p, from: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">To</Label>
+              <DateInput
+                value={filters.to}
+                onChange={(e) => setFilters((p) => ({ ...p, to: e.target.value }))}
+              />
+            </div>
           </div>
           <Button size="sm" variant="secondary" onClick={() => setAppliedFilters({ ...filters })}>
             Apply
@@ -269,12 +271,12 @@ export default function AdhocWorkPage() {
             ))}
           </div>
         ) : entries.length === 0 ? (
-          <p className="p-8 text-center text-sm text-muted-foreground">No entries yet.</p>
+          <p className="px-6 py-10 text-center text-sm text-muted-foreground">No entries yet.</p>
         ) : (
           entries.map((entry) => (
-            <div key={entry.id} className="flex gap-3 overflow-hidden p-4">
-              <div className="min-w-0 flex-1 space-y-1">
-                <p className="break-all text-sm leading-snug">{entry.description}</p>
+            <div key={entry.id} className="flex gap-3 overflow-hidden px-5 py-4">
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <p className="break-words [overflow-wrap:anywhere] text-sm leading-snug">{entry.description}</p>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                   {isManager && <span>{entry.user.name}</span>}
                   <span>{new Date(entry.createdAt).toLocaleDateString()}</span>

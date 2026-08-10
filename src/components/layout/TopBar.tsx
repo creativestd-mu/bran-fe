@@ -52,8 +52,8 @@ export function TopBar({ onMenuClick, onSearchOpen }: TopBarProps) {
   const isDashboardHome = location.pathname === "/dashboard"
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/45 bg-transparent px-3 py-3 backdrop-blur-xl sm:px-4 lg:px-6">
-      <div className="flex min-h-14 min-w-0 items-center gap-1.5 rounded-2xl border border-border/60 bg-card/80 px-2 py-1 shadow-lg shadow-black/5 backdrop-blur-xl sm:gap-2 sm:px-3">
+    <header className="sticky top-0 z-40 border-b border-border/45 bg-transparent px-3 py-3 backdrop-blur-xl sm:px-4 lg:px-5">
+      <div className="flex min-h-14 min-w-0 items-center gap-1.5 rounded-2xl border border-border/60 bg-card/80 px-3 py-1.5 shadow-lg shadow-black/5 backdrop-blur-xl sm:gap-2 sm:px-4">
         <Button
           variant="ghost"
           size="icon"

@@ -14,7 +14,9 @@ export function DashboardLayout() {
   const location = useLocation()
   const isDashboardHome = location.pathname === "/dashboard"
   const isBrainMap = location.pathname === "/brain"
-  const isFullBleed = isDashboardHome || isBrainMap
+  const isAiQuery = location.pathname === "/ai"
+  // Full-bleed pages fill the main pane (no inset card / bottom gradient band).
+  const isFullBleed = isDashboardHome || isBrainMap || isAiQuery
   usePageVisitTracking()
 
   useEffect(() => {
@@ -54,11 +56,9 @@ export function DashboardLayout() {
 
         <main
           className={
-            isBrainMap
+            isBrainMap || isAiQuery || isDashboardHome
               ? "flex min-h-0 flex-1 flex-col overflow-hidden"
-              : isDashboardHome
-                ? "flex min-h-0 flex-1 flex-col overflow-hidden"
-                : "flex flex-1 flex-col overflow-hidden px-3 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-7"
+              : "flex flex-1 flex-col overflow-hidden px-3 py-3 sm:px-4 sm:py-4 lg:px-5 lg:py-5"
           }
         >
           {isFullBleed ? (

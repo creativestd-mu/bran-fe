@@ -325,18 +325,20 @@ export function OutputsSection({ node, content, canReview }: Props) {
           }
         }}
       >
-        <DialogContent className="overflow-x-hidden">
-          <DialogHeader>
+        <DialogContent className="max-w-lg overflow-x-hidden">
+          <DialogHeader className="pr-8">
             <DialogTitle>Review output{reviewing ? ` v${reviewing.version}` : ""}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="min-w-0 space-y-4 overflow-x-hidden">
             {reviewing && (
               <div className="min-w-0 overflow-hidden rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
                 <div className="flex min-w-0 items-start gap-2">
                   <Badge variant={APPROVAL_BADGE[reviewing.approvalState]} className="shrink-0">
                     {pretty(reviewing.approvalState)}
                   </Badge>
-                  <span className="min-w-0 flex-1 break-words font-medium">{reviewing.label}</span>
+                  <span className="min-w-0 flex-1 break-words [overflow-wrap:anywhere] font-medium">
+                    {reviewing.label}
+                  </span>
                 </div>
               </div>
             )}

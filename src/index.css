@@ -326,16 +326,20 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 }
 
 /* DateInput hides the native glyph and draws its own icon — keep the native
-   indicator invisible so we never get a double calendar (#77). */
+   indicator invisible so we never get a double calendar (#76/#77). */
 .date-input-native::-webkit-calendar-picker-indicator {
   opacity: 0 !important;
-  width: 2.25rem;
-  height: 100%;
+  filter: none !important;
+  width: 2.25rem !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
 }
 
-.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator,
-.dark input[type="date"]::-webkit-calendar-picker-indicator,
-.dark input[type="time"]::-webkit-calendar-picker-indicator {
+.dark input[type="datetime-local"]:not(.date-input-native)::-webkit-calendar-picker-indicator,
+.dark input[type="date"]:not(.date-input-native)::-webkit-calendar-picker-indicator,
+.dark input[type="time"]:not(.date-input-native)::-webkit-calendar-picker-indicator {
   /* Lighten the default dark glyph so it reads clearly on dark inputs */
   filter: invert(1) brightness(1.15);
 }

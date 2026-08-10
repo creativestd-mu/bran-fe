@@ -127,8 +127,8 @@ export default function AIQueryPage() {
   )
 
   return (
-    <div className="flex flex-1 min-h-0 gap-4">
-      <Card className="hidden w-72 shrink-0 flex-col lg:flex">
+    <div className="flex h-full min-h-0 flex-1 gap-3 p-3 sm:gap-4 sm:p-4 lg:p-5">
+      <Card className="hidden h-full w-72 shrink-0 flex-col overflow-hidden lg:flex">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
           <CardTitle className="text-sm text-accent">Query History</CardTitle>
           <Button variant="outline" size="sm" className="h-8 gap-1.5 px-2.5" onClick={startNewChat}>
@@ -136,15 +136,15 @@ export default function AIQueryPage() {
             New chat
           </Button>
         </CardHeader>
-        <ScrollArea className="flex-1">
+        <ScrollArea className="min-h-0 flex-1">
           <div className="space-y-1 px-3 pb-4">
             {historyList}
           </div>
         </ScrollArea>
       </Card>
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex items-center justify-end gap-2 px-2 pt-2 lg:hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/55 bg-background/72 shadow-2xl shadow-black/10 backdrop-blur-xl dark:bg-background/62 sm:rounded-2xl lg:rounded-[2rem]">
+        <div className="flex items-center justify-end gap-2 px-3 pt-3 lg:hidden">
           <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setHistoryOpen(true)}>
             <History className="h-3.5 w-3.5" />
             History
@@ -154,7 +154,7 @@ export default function AIQueryPage() {
             New chat
           </Button>
         </div>
-        <div className="flex-1 overflow-y-auto p-2">
+        <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
           {loading ? (
             <Card>
               <CardContent className="space-y-3 p-6">
