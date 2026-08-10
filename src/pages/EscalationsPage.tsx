@@ -23,7 +23,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -122,7 +121,16 @@ export default function EscalationsPage() {
   }, [fetchList])
 
   const summaryValue = (key: keyof EscalationSummary | "total") => {
-    if (key === "total") return data?.total ?? 0
+    if (key === "total") {
+      // Always sum unfiltered status buckets — never use the search-filtered `total`.
+      return (
+        summary.open +
+        summary.inProgress +
+        summary.waiting +
+        summary.resolved +
+        summary.closed
+      )
+    }
     if (key === "open") {
       // Treat waiting / in_progress as open in the chip count.
       return summary.open + summary.inProgress + summary.waiting
@@ -224,7 +232,8 @@ export default function EscalationsPage() {
       setDetail(res)
       setNoteDraft("")
       toast.success("Note added")
-      await fetchList()
+      // Refresh list in the background — don't keep the note button spinning.
+      void fetchList()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to add note")
     } finally {
@@ -462,7 +471,7 @@ export default function EscalationsPage() {
                     {closingId === detail.id ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     ) : null}
-                    Close
+                    Close escalation
                   </Button>
                 )}
               </div>
@@ -570,11 +579,6 @@ export default function EscalationsPage() {
             </div>
           )}
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDetailOpen(false)}>
-              Close
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

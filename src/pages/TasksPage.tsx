@@ -200,6 +200,7 @@ export default function TasksPage() {
   }
 
   const updateStatus = async (task: Task, newStatus: TaskStatus) => {
+    if (task.status === newStatus) return
     try {
       const updated = await tasksApi.update(task.id, { status: newStatus })
       setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)))

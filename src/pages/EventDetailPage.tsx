@@ -466,9 +466,6 @@ export default function EventDetailPage() {
               ))}
             </SelectContent>
           </Select>
-          <Badge variant="outline" className={cn(statusBadgeClass(String(event.status)))}>
-            {String(event.status)}
-          </Badge>
           {isManual && (
             <Button variant="outline" size="sm" onClick={() => setDeleteOpen(true)}>
               <Trash2 className="h-4 w-4" />

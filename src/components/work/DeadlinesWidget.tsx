@@ -39,9 +39,11 @@ export function DeadlinesWidget() {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground">Due today</CardTitle>
-        <CalendarClock className="h-4 w-4 text-accent" />
+        <span title="Work-unit steps due today" aria-label="Work-unit steps due today">
+          <CalendarClock className="h-4 w-4 text-accent" />
+        </span>
       </CardHeader>
-      <CardContent>
+      <CardContent className="min-w-0 overflow-hidden">
         {loading ? (
           <div className="space-y-2">
             <Skeleton className="h-10 w-full" />
@@ -52,16 +54,16 @@ export function DeadlinesWidget() {
         ) : (
           <ul className="space-y-2">
             {deadlines.map((item) => (
-              <li key={item.id}>
+              <li key={item.id} className="min-w-0">
                 <Link
                   to="/work"
-                  className="block rounded-lg border border-border/60 p-2.5 transition-colors hover:bg-muted/40"
+                  className="block min-w-0 overflow-hidden rounded-lg border border-border/60 p-2.5 transition-colors hover:bg-muted/40"
                 >
-                  <div className="flex items-start gap-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="break-all text-sm font-medium leading-snug">{item.description}</p>
-                      <p className="mt-0.5 break-all text-xs text-muted-foreground flex items-center gap-1">
-                        {item.workUnit.title}
+                  <div className="flex min-w-0 items-start gap-2">
+                    <div className="min-w-0 flex-1 overflow-hidden">
+                      <p className="line-clamp-2 break-words text-sm font-medium leading-snug">{item.description}</p>
+                      <p className="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+                        <span className="truncate">{item.workUnit.title}</span>
                         {item.workUnit.isPrivate && (
                           <Lock className="h-3 w-3 shrink-0" aria-label="Private" />
                         )}

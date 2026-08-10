@@ -7,9 +7,16 @@
     <title>Bran — Team Performance</title>
     <script>
       try {
-        var stored = localStorage.getItem('bran_theme');
-        var theme = stored === 'light' || stored === 'dark' ? stored : 'dark';
+        var stored = localStorage.getItem('bran_theme_preference');
+        var theme =
+          stored === 'light' || stored === 'dark'
+            ? stored
+            : window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light';
         if (theme === 'dark') document.documentElement.classList.add('dark');
+        else document.documentElement.classList.remove('dark');
+        localStorage.removeItem('bran_theme');
       } catch (e) {}
     </script>
   </head>

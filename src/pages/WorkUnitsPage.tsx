@@ -205,6 +205,7 @@ export default function WorkUnitsPage() {
   const [deleteLoading, setDeleteLoading] = useState(false)
 
   const [recordOpen, setRecordOpen] = useState(false)
+  const [reviewOpen, setReviewOpen] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
   const [audioResult, setAudioResult] = useState<AudioWorkResult | null>(null)
@@ -423,11 +424,15 @@ export default function WorkUnitsPage() {
 
   const closeRecordDialog = () => {
     setRecordOpen(false)
+    recorder.reset()
+  }
+
+  const closeReviewDialog = () => {
+    setReviewOpen(false)
     setAudioResult(null)
     setEditedTranscript("")
     setTranscriptEditing(false)
     setAudioProjectOverrides({})
-    recorder.reset()
   }
 
   const initAudioResult = (result: AudioWorkResult) => {
@@ -442,6 +447,7 @@ export default function WorkUnitsPage() {
   }
 
   const handleUploadRecording = async () => {
+    if (uploading) return
     const blob = recorder.blob ?? (await recorder.stop())
     if (!blob || blob.size === 0) {
       toast.error("No recording to upload")
@@ -450,9 +456,16 @@ export default function WorkUnitsPage() {
     setUploading(true)
     try {
       const result = await workApi.createAudio(blob, "memo.webm")
-      initAudioResult(result)
+      // Close the record dialog first, then open the review dialog on the next
+      // tick so React does not animate a title/content swap that looks like a
+      // duplicate modal (#54).
+      setRecordOpen(false)
+      recorder.reset()
+      window.setTimeout(() => {
+        initAudioResult(result)
+        setReviewOpen(true)
+      }, 0)
       toast.success(`Created ${result.workUnits.length} work unit(s)`)
-      fetchUnits(1, tab)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to process recording")
     } finally {
@@ -472,10 +485,12 @@ export default function WorkUnitsPage() {
       await Promise.all(
         audioResult.workUnits.map((unit) => workApi.delete(unit.id).catch(() => {}))
       )
-      const result = await workApi.regenerateFromTranscript(transcript)
+      const result = await workApi.regenerateFromTranscript(
+        audioResult.audioRecording.id,
+        transcript
+      )
       initAudioResult(result)
       toast.success(`Regenerated ${result.workUnits.length} work unit(s)`)
-      fetchUnits(1, tab)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to regenerate work units")
     } finally {
@@ -499,7 +514,7 @@ export default function WorkUnitsPage() {
               variant="secondary"
               className="gap-1.5"
               onClick={() => {
-                setAudioResult(null)
+                closeReviewDialog()
                 recorder.reset()
                 setRecordOpen(true)
               }}
@@ -579,8 +594,8 @@ export default function WorkUnitsPage() {
           </Button>
           <Button
             size="sm"
-            variant="outline"
-            className="gap-1.5"
+            variant="secondary"
+            className="gap-1.5 border border-border/80 font-medium text-foreground"
             onClick={() => setFilters({ userId: "all", from: "", to: "" })}
             disabled={filters.userId === "all" && !filters.from && !filters.to}
           >
@@ -732,70 +747,82 @@ export default function WorkUnitsPage() {
       </Dialog>
 
       <Dialog open={recordOpen} onOpenChange={(open) => !open && closeRecordDialog()}>
-        <DialogContent className="flex max-h-[90vh] w-[calc(100%-2rem)] max-w-4xl flex-col gap-4 overflow-hidden sm:max-w-4xl">
+        <DialogContent className="flex max-h-[90vh] w-[calc(100%-2rem)] max-w-lg flex-col gap-4 overflow-hidden sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{audioResult ? "Review work units" : "Record voice memo"}</DialogTitle>
+            <DialogTitle>Record voice memo</DialogTitle>
           </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Describe your meetings and follow-ups. The recording will be transcribed and split
+              into work units automatically.
+            </p>
 
-          {!audioResult ? (
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Describe your meetings and follow-ups. The recording will be transcribed and split
-                into work units automatically.
-              </p>
+            <div className="flex flex-col items-center gap-4 rounded-lg border border-border/60 bg-card/40 p-6">
+              {recorder.status === "recording" && (
+                <div className="flex items-center gap-2 text-sm text-destructive">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-destructive" />
+                  Recording {formatDuration(recorder.durationMs)}
+                </div>
+              )}
 
-              <div className="flex flex-col items-center gap-4 rounded-lg border border-border/60 bg-card/40 p-6">
-                {recorder.status === "recording" && (
-                  <div className="flex items-center gap-2 text-sm text-destructive">
-                    <span className="h-2 w-2 animate-pulse rounded-full bg-destructive" />
-                    Recording {formatDuration(recorder.durationMs)}
-                  </div>
-                )}
+              {recorder.status === "stopped" && (
+                <p className="text-sm text-muted-foreground">
+                  Recording ready ({formatDuration(recorder.durationMs)})
+                </p>
+              )}
 
-                {recorder.status === "stopped" && (
-                  <p className="text-sm text-muted-foreground">
-                    Recording ready ({formatDuration(recorder.durationMs)})
-                  </p>
-                )}
+              {recorder.error && (
+                <p className="text-sm text-destructive">{recorder.error}</p>
+              )}
 
-                {recorder.error && (
-                  <p className="text-sm text-destructive">{recorder.error}</p>
-                )}
-
-                <div className="flex gap-2">
-                  {recorder.status === "idle" || recorder.status === "error" ? (
-                    <Button onClick={() => void recorder.start()} className="gap-2">
-                      <Mic className="h-4 w-4" />
-                      Start recording
+              <div className="flex gap-2">
+                {recorder.status === "idle" || recorder.status === "error" ? (
+                  <Button onClick={() => void recorder.start()} className="gap-2">
+                    <Mic className="h-4 w-4" />
+                    Start recording
+                  </Button>
+                ) : recorder.status === "recording" ? (
+                  <Button
+                    variant="destructive"
+                    onClick={() => void recorder.stop()}
+                    className="gap-2"
+                  >
+                    <Square className="h-4 w-4" />
+                    Stop
+                  </Button>
+                ) : (
+                  <>
+                    <Button variant="outline" onClick={() => recorder.reset()}>
+                      Re-record
                     </Button>
-                  ) : recorder.status === "recording" ? (
                     <Button
-                      variant="destructive"
-                      onClick={() => void recorder.stop()}
+                      onClick={() => void handleUploadRecording()}
+                      disabled={uploading}
                       className="gap-2"
                     >
-                      <Square className="h-4 w-4" />
-                      Stop
+                      {uploading && <Loader2 className="h-4 w-4 animate-spin" />}
+                      Process recording
                     </Button>
-                  ) : (
-                    <>
-                      <Button variant="outline" onClick={() => recorder.reset()}>
-                        Re-record
-                      </Button>
-                      <Button
-                        onClick={() => void handleUploadRecording()}
-                        disabled={uploading}
-                        className="gap-2"
-                      >
-                        {uploading && <Loader2 className="h-4 w-4 animate-spin" />}
-                        Process recording
-                      </Button>
-                    </>
-                  )}
-                </div>
+                  </>
+                )}
               </div>
             </div>
-          ) : (
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeRecordDialog} disabled={uploading}>
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={reviewOpen && !!audioResult} onOpenChange={(open) => !open && closeReviewDialog()}>
+        <DialogContent className="flex max-h-[90vh] w-[calc(100%-2rem)] max-w-4xl flex-col gap-4 overflow-hidden sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Review work units</DialogTitle>
+          </DialogHeader>
+
+          {audioResult && (
             <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-2">
@@ -833,9 +860,25 @@ export default function WorkUnitsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">
-                  Work units ({audioResult.workUnits.length})
-                </Label>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Label className="text-xs text-muted-foreground">
+                    Work units ({audioResult.workUnits.length})
+                  </Label>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={
+                      regenerating ||
+                      editedTranscript.trim() === audioResult.transcript.trim()
+                    }
+                    onClick={() => void handleRegenerateFromTranscript()}
+                    className="h-7 gap-1.5 text-xs"
+                    title="Save the edited transcript and re-generate work units from it"
+                  >
+                    {regenerating && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                    Save & regenerate
+                  </Button>
+                </div>
                 <div className="space-y-2">
                   {audioResult.workUnits.length === 0 ? (
                     <p className="rounded-lg border border-border/60 p-4 text-center text-sm text-muted-foreground">
@@ -906,25 +949,12 @@ export default function WorkUnitsPage() {
           )}
 
           <DialogFooter>
-            {audioResult && (
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={regenerating || editedTranscript.trim() === audioResult.transcript.trim()}
-                onClick={() => void handleRegenerateFromTranscript()}
-                className="gap-1.5"
-                title="Save the edited transcript and re-generate work units from it"
-              >
-                {regenerating && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                Save & regenerate
-              </Button>
-            )}
             <Button
               variant="outline"
-              disabled={savingOverrides}
+              disabled={savingOverrides || regenerating}
               onClick={async () => {
                 if (!audioResult) {
-                  closeRecordDialog()
+                  closeReviewDialog()
                   return
                 }
                 setSavingOverrides(true)
@@ -941,11 +971,11 @@ export default function WorkUnitsPage() {
                 } finally {
                   setSavingOverrides(false)
                 }
-                closeRecordDialog()
+                closeReviewDialog()
               }}
             >
               {savingOverrides && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-              {audioResult ? "Done" : "Cancel"}
+              Done
             </Button>
           </DialogFooter>
         </DialogContent>

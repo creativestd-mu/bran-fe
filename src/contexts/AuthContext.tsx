@@ -84,6 +84,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshUser()
   }, [refreshUser])
 
+  useEffect(() => {
+    const onExpired = () => {
+      localStorage.removeItem("bran_token")
+      localStorage.removeItem("bran_user")
+      localStorage.removeItem(MOST_VISITED_KEY)
+      setState({ user: null, token: null, loading: false, mostVisitedPages: [] })
+    }
+    window.addEventListener("bran:auth-expired", onExpired)
+    return () => window.removeEventListener("bran:auth-expired", onExpired)
+  }, [])
+
   const login = useCallback((token: string, user: User, mostVisitedPages: MostVisitedPage[] = []) => {
     localStorage.setItem("bran_token", token)
     localStorage.setItem("bran_user", JSON.stringify(user))

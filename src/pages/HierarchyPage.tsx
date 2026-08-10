@@ -7,9 +7,9 @@ export default function HierarchyPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="font-brand text-2xl tracking-wide text-accent">Hierarchy Editor</h1>
+        <h1 className="font-brand text-2xl tracking-wide text-accent">Organisation</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Build org-wide, team, and project reporting lines with an interactive graph.
+          A clear view of people, teams, and reporting relationships.
         </p>
       </div>
 

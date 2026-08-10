@@ -67,7 +67,9 @@ function App() {
     <>
       <GlobalApiLoader />
       <Routes>
-        <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
+        {/* LoginPage itself redirects already-authenticated users, honoring any "from" location
+            (e.g. a shared /preread/:id link) instead of hardcoding /dashboard here. */}
+        <Route path="/login" element={<LoginPage />} />
         <Route path="/forbidden" element={<ForbiddenPage />} />
 
       <Route

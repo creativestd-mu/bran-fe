@@ -250,8 +250,8 @@ export default function AdhocWorkPage() {
           </Button>
           <Button
             size="sm"
-            variant="outline"
-            className="gap-1.5 text-foreground"
+            variant="secondary"
+            className="gap-1.5 border border-border/80 font-medium text-foreground"
             onClick={clearFilters}
             disabled={filters.userId === "all" && !filters.from && !filters.to}
           >
@@ -425,13 +425,13 @@ function AdhocForm({
   onChange: React.Dispatch<React.SetStateAction<typeof emptyForm>>
 }) {
   return (
-    <div className="space-y-4">
-      <div className="space-y-1.5">
+    <div className="space-y-5 py-1">
+      <div className="space-y-2">
         <Label>
           Description <span className="text-destructive">*</span>
         </Label>
         <Textarea
-          rows={5}
+          rows={4}
           value={form.description}
           maxLength={8000}
           placeholder="What did you do?"
@@ -439,7 +439,7 @@ function AdhocForm({
           onChange={(e) => onChange((p) => ({ ...p, description: e.target.value }))}
         />
       </div>
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         <Label>Output (optional)</Label>
         <Input
           value={form.output}
@@ -448,7 +448,7 @@ function AdhocForm({
           onChange={(e) => onChange((p) => ({ ...p, output: e.target.value }))}
         />
       </div>
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         <Label>Effort hours (optional)</Label>
         <Input
           type="number"

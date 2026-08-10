@@ -346,7 +346,10 @@ export function ResourcesSection({ node, content }: Props) {
             const line = cost * qty
             const currency = resource.currency ?? ""
             const approvalState: ResourceApprovalState = resource.approvalState
-            const isOwnRequest = Boolean(user && resource.requestedBy && resource.requestedBy.id === user.id)
+            const isOwnRequest = Boolean(
+              user &&
+                (resource.requestedBy?.id === user.id || resource.requestedByUserId === user.id)
+            )
             const showReviewControls =
               isRental && canReviewRentals && approvalState !== "APPROVED" && !isOwnRequest
             const showRejectOnly =
@@ -355,9 +358,9 @@ export function ResourcesSection({ node, content }: Props) {
             return (
               <li
                 key={resource.id}
-                className="flex items-start justify-between gap-3 overflow-hidden rounded-md border border-border bg-background px-3 py-2.5"
+                className="flex items-start justify-between gap-3 overflow-hidden rounded-md border border-border bg-background px-3 py-3"
               >
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 space-y-1.5">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex min-w-0 flex-wrap items-center gap-2">
                       <Badge variant={isRental ? "warning" : "secondary"} className="gap-1 text-[10px] uppercase tracking-wider">
@@ -377,15 +380,15 @@ export function ResourcesSection({ node, content }: Props) {
                           Approved
                         </Badge>
                       )}
-                      <div className="min-w-0 truncate text-sm font-semibold text-foreground">{resource.name}</div>
                     </div>
                     {isRental && currency && (
-                      <div className="text-sm font-semibold tabular-nums">
+                      <div className="shrink-0 text-sm font-semibold tabular-nums">
                         {formatMoney(line, currency)}
                       </div>
                     )}
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-foreground/80">
+                  <div className="min-w-0 break-words text-sm font-semibold text-foreground">{resource.name}</div>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-foreground/80">
                     {isRental && currency ? (
                       <span className="font-medium tabular-nums">
                         {qty} × {formatMoney(cost, currency)}
@@ -396,7 +399,7 @@ export function ResourcesSection({ node, content }: Props) {
                     {resource.notes && (
                       <>
                         <span className="text-border">·</span>
-                        <span className="line-clamp-1 italic">{resource.notes}</span>
+                        <span className="min-w-0 break-words italic">{resource.notes}</span>
                       </>
                     )}
                   </div>

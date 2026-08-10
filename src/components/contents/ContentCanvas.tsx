@@ -65,6 +65,7 @@ interface CanvasNodeData extends Record<string, unknown> {
   node: ContentNode
   index: number
   onOpen: (nodeId: string) => void
+  syncKey?: string
 }
 
 type ChipNode = Node<CanvasNodeData>
@@ -136,13 +137,13 @@ function NodeChip({ data }: NodeProps<ChipNode>) {
       )}
 
       <div className="mt-3 flex items-center gap-3 text-[11px] text-muted-foreground">
-        <span className="inline-flex items-center gap-1">
+        <span className="inline-flex items-center gap-1" title="Outputs submitted">
           <FileCheck className="h-3 w-3" /> {node.outputs.length}
         </span>
-        <span className="inline-flex items-center gap-1">
+        <span className="inline-flex items-center gap-1" title="Team members">
           <UsersRound className="h-3 w-3" /> {node.team.length}
         </span>
-        <span className="inline-flex items-center gap-1">
+        <span className="inline-flex items-center gap-1" title="Resources logged">
           <Coins className="h-3 w-3" /> {node.resources.length}
         </span>
         <span className="ml-auto inline-flex items-center gap-1 text-[10px] opacity-0 transition-opacity group-hover:opacity-100">
@@ -193,6 +194,7 @@ function ContentCanvasInner({ content, canReview, initialOpenNodeId }: Props) {
   // Sync nodes from content data only when the underlying ids/order/data change.
   // Positions for nodes that already exist on the canvas are preserved so that
   // dragging doesn't get clobbered by re-renders triggered by react-query refetches.
+  // Signature includes kind/name/status so canvas badges update after edit (#52).
   useEffect(() => {
     setNodes((prev) => {
       const prevById = new Map(prev.map((n) => [n.id, n]))
@@ -203,7 +205,12 @@ function ContentCanvasInner({ content, canReview, initialOpenNodeId }: Props) {
           type: "contentNode",
           position: existing?.position ?? defaultPosition(index),
           draggable: true,
-          data: { node, index, onOpen: openNode },
+          data: {
+            node,
+            index,
+            onOpen: openNode,
+            syncKey: `${node.kind}|${node.name}|${node.status}|${node.updatedAt ?? ""}`,
+          },
         }
       })
     })
@@ -296,19 +303,47 @@ function ContentCanvasInner({ content, canReview, initialOpenNodeId }: Props) {
     }
   }, [fitViewOptions])
 
+  const wasFullscreenRef = useRef(false)
+
   // Lock body scroll and handle Escape key when fullscreen.
+  // After exiting fullscreen, delay fitView so layout has settled (#51).
   useEffect(() => {
-    if (!isFullscreen) return
-    document.body.style.overflow = "hidden"
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { e.preventDefault(); setIsFullscreen(false) }
+    if (isFullscreen) {
+      wasFullscreenRef.current = true
+      document.body.style.overflow = "hidden"
+      const handler = (e: KeyboardEvent) => {
+        if (e.key === "Escape") {
+          e.preventDefault()
+          setIsFullscreen(false)
+        }
+      }
+      window.addEventListener("keydown", handler)
+      return () => {
+        document.body.style.overflow = ""
+        window.removeEventListener("keydown", handler)
+      }
     }
-    window.addEventListener("keydown", handler)
+
+    if (!wasFullscreenRef.current) return
+    wasFullscreenRef.current = false
+
+    let cancelled = false
+    let raf1 = 0
+    let raf2 = 0
+    const timer = window.setTimeout(() => {
+      raf1 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(() => {
+          if (!cancelled) flowRef.current?.fitView(fitViewOptions)
+        })
+      })
+    }, 250)
     return () => {
-      document.body.style.overflow = ""
-      window.removeEventListener("keydown", handler)
+      cancelled = true
+      window.clearTimeout(timer)
+      cancelAnimationFrame(raf1)
+      cancelAnimationFrame(raf2)
     }
-  }, [isFullscreen])
+  }, [isFullscreen, fitViewOptions])
 
   const toggleFullscreen = useCallback(() => setIsFullscreen((v) => !v), [])
 

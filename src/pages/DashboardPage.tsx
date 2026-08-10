@@ -73,8 +73,8 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center px-4 py-8">
-      <div className="w-full max-w-2xl space-y-6">
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden px-4 py-6">
+      <div className="w-full max-w-2xl -mt-[8vh] space-y-6 sm:-mt-[10vh]">
         <div className="text-center">
           <h1 className="font-brand text-4xl tracking-wide text-accent sm:text-5xl">BRan</h1>
           {user?.name && (

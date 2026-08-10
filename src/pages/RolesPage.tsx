@@ -127,27 +127,41 @@ export default function RolesPage() {
           <h1 className="font-brand text-2xl tracking-wide text-accent">Roles & Permissions</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage access control for your team</p>
         </div>
-        <Button onClick={() => setCreateOpen(true)} className="gap-2">
+        <Button
+          onClick={() => {
+            setCreateForm({ name: "", description: "" })
+            setCreateOpen(true)
+          }}
+          className="gap-2"
+        >
           <Plus className="h-4 w-4" /> Create Role
         </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {roles.map((role) => (
-          <Card key={role.id}>
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-accent" />
-                  <CardTitle className="text-lg">{formatRoleLabel(role.name)}</CardTitle>
+          <Card key={role.id} className="min-w-0 overflow-hidden">
+            <CardHeader className="space-y-2 pb-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <Shield className="h-5 w-5 shrink-0 text-accent" />
+                  <CardTitle className="truncate text-lg">{formatRoleLabel(role.name)}</CardTitle>
                 </div>
                 {!BUILTIN_ROLES.includes(role.name) && (
-                  <Button variant="ghost" size="icon" onClick={() => confirmDelete(role)} title="Delete role">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0"
+                    onClick={() => confirmDelete(role)}
+                    title="Delete role"
+                  >
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
                 )}
               </div>
-              {role.description && <CardDescription>{role.description}</CardDescription>}
+              {role.description && (
+                <CardDescription className="line-clamp-2 break-words">{role.description}</CardDescription>
+              )}
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -189,11 +203,24 @@ export default function RolesPage() {
             </div>
             <div className="space-y-2">
               <Label>Description</Label>
-              <Textarea value={createForm.description} onChange={(e) => setCreateForm((p) => ({ ...p, description: e.target.value }))} placeholder="Optional description" />
+              <Textarea
+                value={createForm.description}
+                onChange={(e) => setCreateForm((p) => ({ ...p, description: e.target.value }))}
+                placeholder="Optional description"
+                className="max-h-40 resize-none"
+              />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCreateForm({ name: "", description: "" })
+                setCreateOpen(false)
+              }}
+            >
+              Cancel
+            </Button>
             <Button onClick={handleCreate}>Create</Button>
           </DialogFooter>
         </DialogContent>
@@ -219,11 +246,11 @@ export default function RolesPage() {
       </Dialog>
 
       <Dialog open={!!editingRole} onOpenChange={() => setEditingRole(null)}>
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-h-[80vh] max-w-lg overflow-y-auto overscroll-contain">
           <DialogHeader>
             <DialogTitle>Permissions for {formatRoleLabel(editingRole?.name)}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-2">
+          <div className="space-y-2 pr-1">
             {allPermissions.map((perm) => (
               <label key={perm.id} className="flex items-center gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-muted/50 transition-colors">
                 <input

@@ -1,13 +1,12 @@
-/* Classic CSS org-chart connectors (nested ul/li).
-   Parents auto-center over their children; connector lines are drawn with
-   pseudo-elements so the tree stays crisp at any zoom level. */
+/* Read-mode org tree. Desktop uses a centered branching chart; mobile is
+   rendered as a vertical directory by the component. */
 
 .org-tree {
-  --org-line: rgba(139, 112, 62, 0.55);
-  --org-gap-y: 34px;
+  --org-line: color-mix(in srgb, var(--border) 82%, transparent);
+  --org-gap-y: 38px;
   display: flex;
   justify-content: flex-start;
-  padding: 8px 0;
+  padding: 12px 0 28px;
   transform-origin: top left;
   width: max-content;
 }
@@ -26,7 +25,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: var(--org-gap-y) 12px 0;
+  padding: var(--org-gap-y) 14px 0;
   list-style: none;
 }
 
@@ -39,13 +38,13 @@
   right: 50%;
   width: 50%;
   height: var(--org-gap-y);
-  border-top: 2px solid var(--org-line);
+  border-top: 1px solid var(--org-line);
 }
 
 .org-tree li::after {
   right: auto;
   left: 50%;
-  border-left: 2px solid var(--org-line);
+  border-left: 1px solid var(--org-line);
 }
 
 /* Single children get a straight drop line, no elbow. */
@@ -63,11 +62,11 @@
   border: 0 none;
 }
 .org-tree li:last-child::before {
-  border-right: 2px solid var(--org-line);
-  border-radius: 0 6px 0 0;
+  border-right: 1px solid var(--org-line);
+  border-radius: 0 8px 0 0;
 }
 .org-tree li:first-child::after {
-  border-radius: 6px 0 0 0;
+  border-radius: 8px 0 0 0;
 }
 
 /* Drop line from a parent down to the sibling bar. */
@@ -78,7 +77,7 @@
   left: 50%;
   width: 0;
   height: var(--org-gap-y);
-  border-left: 2px solid var(--org-line);
+  border-left: 1px solid var(--org-line);
 }
 
 /* The very top level has no parent, so no incoming line. */
@@ -94,4 +93,34 @@
 .org-tree > ul > li::before,
 .org-tree > ul > li::after {
   display: none;
+}
+
+.org-person-card {
+  isolation: isolate;
+}
+
+.org-person-card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border)) !important;
+  box-shadow: 0 14px 36px rgb(0 0 0 / 18%) !important;
+}
+
+.org-mobile-row {
+  box-shadow: 0 5px 18px rgb(0 0 0 / 8%);
+}
+
+.org-mobile-children::before {
+  content: "";
+  position: absolute;
+  left: var(--mobile-line-x);
+  top: -8px;
+  bottom: 32px;
+  width: 1px;
+  background: color-mix(in srgb, var(--border) 75%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .org-person-card {
+    transition: none;
+  }
 }

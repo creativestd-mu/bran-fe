@@ -21,7 +21,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { formatRoleLabel } from "@/lib/utils"
+import { cn, formatRoleLabel } from "@/lib/utils"
+import { useMediaQuery } from "@/hooks/useMediaQuery"
 import "./orgChart.css"
 
 interface OrgChartViewProps {
@@ -38,11 +39,12 @@ interface OrgNode {
   descendantCount: number
 }
 
-const LEVEL_ACCENTS = ["#d4af37", "#c79a2f", "#a97f3a", "#8b703e", "#6b5638"]
+const LEVEL_ACCENTS = ["#d4af37", "#c9a84f", "#9f8a5e", "#7f735a", "#686155"]
 
 const MIN_ZOOM = 0.4
 const MAX_ZOOM = 1.5
 const ZOOM_STEP = 0.1
+const DEFAULT_ZOOM = 1
 
 function initials(name: string) {
   return name
@@ -101,9 +103,10 @@ function buildForest(members: HierarchyMember[]): {
 
 export function OrgChartView({ members, kind, onEdit }: OrgChartViewProps) {
   const { roots, parentOf, nodeIds } = useMemo(() => buildForest(members), [members])
+  const isDesktop = useMediaQuery("(min-width: 768px)")
 
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
-  const [zoom, setZoom] = useState(0.85)
+  const [zoom, setZoom] = useState(DEFAULT_ZOOM)
   const [query, setQuery] = useState("")
   const [isFullscreen, setIsFullscreen] = useState(false)
 
@@ -181,7 +184,7 @@ export function OrgChartView({ members, kind, onEdit }: OrgChartViewProps) {
 
   const zoomIn = useCallback(() => setZoom((z) => Math.min(MAX_ZOOM, +(z + ZOOM_STEP).toFixed(2))), [])
   const zoomOut = useCallback(() => setZoom((z) => Math.max(MIN_ZOOM, +(z - ZOOM_STEP).toFixed(2))), [])
-  const resetZoom = useCallback(() => setZoom(0.85), [])
+  const resetZoom = useCallback(() => setZoom(DEFAULT_ZOOM), [])
 
   const toggleFullscreen = useCallback(() => setIsFullscreen((v) => !v), [])
 
@@ -218,6 +221,8 @@ export function OrgChartView({ members, kind, onEdit }: OrgChartViewProps) {
   }, [kind])
 
   const totalPeople = nodeIds.length
+  const activePeople = members.filter((member) => member.user.isActive && !member.user.isPlaceholder).length
+  const openRoles = members.filter((member) => member.user.isPlaceholder).length
 
   const renderNode = (node: OrgNode) => {
     const isCollapsed = collapsed.has(node.id)
@@ -236,37 +241,42 @@ export function OrgChartView({ members, kind, onEdit }: OrgChartViewProps) {
             if (el) cardRefs.current.set(node.id, el)
             else cardRefs.current.delete(node.id)
           }}
-          className="relative flex w-[220px] flex-col rounded-xl border bg-card px-3 py-2.5 text-left shadow-md transition"
+          className="org-person-card relative flex w-[236px] flex-col rounded-2xl border bg-card/95 p-3.5 text-left transition"
           style={{
-            borderColor: isMatch ? "#f5d97a" : accent,
+            borderColor: isMatch ? "#f5d97a" : `${accent}55`,
             borderStyle: isPlaceholder ? "dashed" : "solid",
             boxShadow: isMatch
-              ? "0 0 0 2px rgba(245,217,122,0.45), 0 6px 16px rgba(0,0,0,0.3)"
-              : `0 0 0 1px ${accent}22, 0 4px 12px rgba(0,0,0,0.25)`,
+              ? "0 0 0 2px rgba(245,217,122,0.38), 0 12px 32px rgba(0,0,0,0.22)"
+              : "0 10px 30px rgba(0,0,0,0.14)",
           }}
         >
-          <div className="flex items-center gap-2.5">
-            <Avatar className="h-10 w-10 shrink-0 border border-border">
+          <span
+            className="absolute inset-x-5 top-0 h-px"
+            style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)` }}
+          />
+          <div className="flex items-center gap-3">
+            <Avatar className="h-11 w-11 shrink-0 border border-border/70 ring-2 ring-background">
               <AvatarImage src={user.avatarUrl ?? undefined} />
               <AvatarFallback className="text-xs">{isPlaceholder ? "+" : initials(user.name)}</AvatarFallback>
             </Avatar>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold leading-tight">{user.name}</p>
-              <p className="truncate text-xs text-muted-foreground">
+              <div className="flex items-center gap-1.5">
+                <p className="truncate text-sm font-semibold leading-tight">{user.name}</p>
+                <span
+                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${user.isActive ? "bg-emerald-500" : "bg-muted-foreground/50"}`}
+                  title={user.isActive ? "Active" : "Inactive"}
+                />
+              </div>
+              <p className="mt-1 truncate text-xs text-muted-foreground">
                 {user.designation || (isPlaceholder ? "Open role" : "\u2014")}
               </p>
             </div>
-            <span
-              className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${user.isActive ? "bg-green-500" : "bg-muted-foreground"}`}
-              title={user.isActive ? "Active" : "Inactive"}
-            />
           </div>
 
-          <div className="mt-2 flex items-center justify-between gap-2">
+          <div className="mt-3 flex items-center justify-between gap-2 border-t border-border/50 pt-2.5">
             <Badge
               variant="outline"
-              className="max-w-[120px] truncate text-[10px] capitalize"
-              style={{ borderColor: `${accent}66`, color: accent }}
+              className="max-w-[136px] truncate border-border/60 bg-muted/30 text-[10px] font-medium capitalize text-muted-foreground"
             >
               {roleLabel}
             </Badge>
@@ -274,12 +284,12 @@ export function OrgChartView({ members, kind, onEdit }: OrgChartViewProps) {
               <button
                 type="button"
                 onClick={() => toggle(node.id)}
-                className="flex shrink-0 items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[10px] font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                className="flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-accent/25 bg-accent/10 px-3 text-xs font-semibold text-accent transition hover:bg-accent/20"
                 title={isCollapsed ? `Expand ${node.descendantCount} reports` : "Collapse"}
               >
-                {isCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                <Users className="h-3 w-3" />
+                {isCollapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                 {node.children.length}
+                <span className="font-normal opacity-80">report{node.children.length === 1 ? "" : "s"}</span>
               </button>
             )}
           </div>
@@ -299,77 +309,169 @@ export function OrgChartView({ members, kind, onEdit }: OrgChartViewProps) {
     )
   }
 
+  const renderMobileNode = (node: OrgNode) => {
+    const isCollapsed = collapsed.has(node.id)
+    const hasChildren = node.children.length > 0
+    const user = node.member.user
+    const isPlaceholder = Boolean(user.isPlaceholder)
+    const isMatch = matches.has(node.id)
+    const accent = LEVEL_ACCENTS[Math.min(node.depth, LEVEL_ACCENTS.length - 1)]
+    const roleLabel =
+      kind === "user" ? formatRoleLabel(user.role?.name) || "Member" : formatRoleLabel(node.member.memberRole)
+
+    return (
+      <div key={node.id} className="relative">
+        <div
+          className={cn(
+            "org-mobile-row relative flex min-h-16 items-center gap-3 rounded-2xl border bg-card/80 p-3",
+            isMatch && "ring-2 ring-accent/50"
+          )}
+          style={{
+            marginLeft: `${Math.min(node.depth * 14, 42)}px`,
+            borderColor: isPlaceholder ? `${accent}77` : undefined,
+            borderStyle: isPlaceholder ? "dashed" : "solid",
+          }}
+          ref={(el) => {
+            if (el) cardRefs.current.set(node.id, el)
+            else cardRefs.current.delete(node.id)
+          }}
+        >
+          {node.depth > 0 && (
+            <span
+              aria-hidden
+              className="absolute -left-3 top-1/2 h-px w-3"
+              style={{ backgroundColor: `${accent}66` }}
+            />
+          )}
+          <Avatar className="h-10 w-10 shrink-0 border border-border/60">
+            <AvatarImage src={user.avatarUrl ?? undefined} />
+            <AvatarFallback className="text-xs">{isPlaceholder ? "+" : initials(user.name)}</AvatarFallback>
+          </Avatar>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <p className="truncate text-sm font-semibold">{user.name}</p>
+              <span
+                className={`h-1.5 w-1.5 shrink-0 rounded-full ${user.isActive ? "bg-emerald-500" : "bg-muted-foreground/50"}`}
+              />
+            </div>
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">
+              {user.designation || (isPlaceholder ? "Open role" : roleLabel)}
+            </p>
+            <p className="mt-1 truncate text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
+              {roleLabel}
+            </p>
+          </div>
+          {hasChildren ? (
+            <button
+              type="button"
+              onClick={() => toggle(node.id)}
+              className="flex h-11 min-w-[60px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl border border-accent/25 bg-accent/10 px-2.5 text-accent transition active:scale-95"
+              aria-label={isCollapsed ? `Show reports for ${user.name}` : `Hide reports for ${user.name}`}
+            >
+              <span className="flex items-center gap-1 text-sm font-bold leading-none tabular-nums">
+                {node.children.length}
+                {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </span>
+              <span className="text-[9px] font-medium uppercase leading-none tracking-wide text-accent/70">
+                {node.children.length === 1 ? "report" : "reports"}
+              </span>
+            </button>
+          ) : (
+            <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: `${accent}88` }} />
+          )}
+        </div>
+        {hasChildren && !isCollapsed && (
+          <div
+            className="org-mobile-children relative mt-2 space-y-2"
+            style={{ ["--mobile-line-x" as string]: `${Math.min(node.depth * 14 + 8, 50)}px` }}
+          >
+            {node.children.map(renderMobileNode)}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const toolbar = (
     <div
       className={
         isFullscreen
-          ? "flex shrink-0 flex-wrap items-center gap-2 border-b border-border bg-card px-3 py-2"
-          : "flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2.5"
+          ? "shrink-0 border-b border-border/60 bg-background/95 p-3 backdrop-blur"
+          : "rounded-2xl border border-border/60 bg-card/55 p-3 shadow-sm"
       }
     >
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Find a person..."
-          className="h-8 w-44 pl-8 pr-7 text-sm"
-        />
-        {query && (
-          <button
-            type="button"
-            onClick={() => setQuery("")}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        )}
-      </div>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="flex items-center gap-3">
+          <div className="hidden h-9 w-9 items-center justify-center rounded-xl bg-accent/10 text-accent sm:flex">
+            <Users className="h-4 w-4" />
+          </div>
+          <div className="hidden min-w-28 sm:block">
+            <p className="text-sm font-semibold">Organisation</p>
+            <p className="text-xs text-muted-foreground">{totalPeople} positions</p>
+          </div>
+          <div className="relative min-w-0 flex-1 sm:flex-none">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Find a person or role"
+              className="h-9 w-full rounded-xl bg-background/70 pl-9 pr-8 text-sm sm:w-56"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label="Clear search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
 
-      <div className="flex items-center gap-1">
-        <Button size="sm" variant="outline" className="gap-1.5" onClick={expandAll}>
-          <ChevronDown className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Expand all</span>
-        </Button>
-        <Button size="sm" variant="outline" className="gap-1.5" onClick={collapseAll}>
-          <ChevronRight className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Collapse</span>
-        </Button>
-      </div>
-
-      <div className="flex items-center gap-0.5 rounded-md border border-border">
-        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={zoomOut} title="Zoom out">
-          <Minus className="h-3.5 w-3.5" />
-        </Button>
-        <button
-          type="button"
-          onClick={resetZoom}
-          className="min-w-[3rem] px-1 text-center text-xs tabular-nums text-muted-foreground hover:text-foreground"
-          title="Reset zoom"
-        >
-          {Math.round(zoom * 100)}%
-        </button>
-        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={zoomIn} title="Zoom in">
-          <Plus className="h-3.5 w-3.5" />
-        </Button>
-        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={resetZoom} title="Reset zoom">
-          <RotateCcw className="h-3.5 w-3.5" />
-        </Button>
-      </div>
-
-      <span className="ml-1 hidden text-xs text-muted-foreground sm:inline">{totalPeople} people</span>
-
-      <div className="ml-auto flex items-center gap-2">
-        <Button size="sm" variant="outline" className="gap-1.5" onClick={exportPng}>
-          <Download className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Export</span>
-        </Button>
-        <Button size="sm" variant="outline" className="gap-1.5" onClick={toggleFullscreen}>
-          {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-          <span className="hidden sm:inline">{isFullscreen ? "Exit" : "Fullscreen"}</span>
-        </Button>
-        {onEdit && (
-          <Button size="sm" className="gap-1.5" onClick={onEdit}>
-            <Pencil className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Edit chart</span>
+        <div className="flex items-center gap-1 overflow-x-auto pb-0.5 lg:ml-auto">
+          <Button size="sm" variant="ghost" className="shrink-0 gap-1.5" onClick={expandAll}>
+            <ChevronDown className="h-3.5 w-3.5" /> Expand
           </Button>
-        )}
+          <Button size="sm" variant="ghost" className="shrink-0 gap-1.5" onClick={collapseAll}>
+            <ChevronRight className="h-3.5 w-3.5" /> Collapse
+          </Button>
+
+          {isDesktop && (
+            <div className="ml-1 flex shrink-0 items-center gap-0.5 rounded-xl border border-border/60 bg-background/50 p-0.5">
+              <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={zoomOut} title="Zoom out">
+                <Minus className="h-3.5 w-3.5" />
+              </Button>
+              <button
+                type="button"
+                onClick={resetZoom}
+                className="min-w-11 px-1 text-center text-[11px] tabular-nums text-muted-foreground hover:text-foreground"
+                title="Reset zoom"
+              >
+                {Math.round(zoom * 100)}%
+              </button>
+              <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={zoomIn} title="Zoom in">
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+              <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={resetZoom} title="Reset zoom">
+                <RotateCcw className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
+
+          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={exportPng} title="Export image">
+            <Download className="h-3.5 w-3.5" />
+          </Button>
+          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={toggleFullscreen} title="Fullscreen">
+            {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+          </Button>
+          {onEdit && (
+            <Button size="sm" className="ml-1 shrink-0 gap-1.5 rounded-xl" onClick={onEdit}>
+              <Pencil className="h-3.5 w-3.5" /> Edit
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -379,24 +481,47 @@ export function OrgChartView({ members, kind, onEdit }: OrgChartViewProps) {
       className={
         isFullscreen
           ? "relative min-h-0 flex-1 overflow-auto bg-background"
-          : "relative h-[60vh] min-h-[320px] overflow-auto rounded-lg border border-border bg-background lg:h-[74vh]"
+          : "relative min-h-[320px] overflow-auto rounded-2xl border border-border/60 bg-background sm:h-[64vh] lg:h-[74vh]"
       }
-      style={{
-        backgroundImage: "radial-gradient(rgba(139,112,62,0.10) 1px, transparent 1px)",
-        backgroundSize: "24px 24px",
-      }}
     >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-accent/[0.035] to-transparent"
+      />
       {totalPeople === 0 ? (
-        <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-          <p className="text-sm font-medium text-accent">No one on this chart yet</p>
+        <div className="flex min-h-[320px] flex-col items-center justify-center gap-2 text-center">
+          <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/60">
+            <Users className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <p className="text-sm font-medium">No one on this chart yet</p>
           <p className="max-w-xs text-xs text-muted-foreground">
             Switch to Edit to drag people in and draw reporting lines.
           </p>
         </div>
-      ) : (
-        <div className="min-h-full min-w-full p-6">
+      ) : isDesktop ? (
+        <div className="relative min-h-full min-w-full p-8">
           <div ref={treeRef} className="org-tree" style={{ transform: `scale(${zoom})` }}>
             <ul>{roots.map(renderNode)}</ul>
+          </div>
+        </div>
+      ) : (
+        <div ref={treeRef} className="relative space-y-4 p-3">
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-xl border border-border/50 bg-card/55 p-2.5">
+              <p className="text-lg font-semibold tabular-nums">{totalPeople}</p>
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Positions</p>
+            </div>
+            <div className="rounded-xl border border-border/50 bg-card/55 p-2.5">
+              <p className="text-lg font-semibold tabular-nums">{activePeople}</p>
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Active</p>
+            </div>
+            <div className="rounded-xl border border-border/50 bg-card/55 p-2.5">
+              <p className="text-lg font-semibold tabular-nums">{openRoles}</p>
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Open roles</p>
+            </div>
+          </div>
+          <div className="space-y-2">
+            {roots.map(renderMobileNode)}
           </div>
         </div>
       )}

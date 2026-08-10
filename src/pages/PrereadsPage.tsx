@@ -44,7 +44,7 @@ function PrereadRow({
             {item.title}
           </Link>
           <Badge variant={item.access === "owner" ? "default" : "secondary"}>
-            {item.access === "owner" ? "Owner" : "Shared"}
+            {item.access === "owner" ? "Owner" : item.access === "editor" ? "Editor" : "Viewer"}
           </Badge>
         </div>
         {item.description && (
@@ -125,7 +125,7 @@ export default function PrereadsPage() {
     [data]
   )
   const shared = useMemo(
-    () => (data ?? []).filter((item) => item.access === "member"),
+    () => (data ?? []).filter((item) => item.access !== "owner"),
     [data]
   )
 

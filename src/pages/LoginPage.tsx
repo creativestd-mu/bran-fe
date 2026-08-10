@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 import { GoogleLogin, type CredentialResponse } from "@react-oauth/google"
 import { useAuth } from "@/contexts/AuthContext"
 import { authApi } from "@/lib/api"
@@ -39,9 +39,14 @@ function normalizeAuthUser(raw: { id: string; email: string; name: string; avata
   }
 }
 
+interface LoginRedirectState {
+  from?: { pathname: string; search?: string; hash?: string }
+}
+
 export default function LoginPage() {
   const { user, login } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
@@ -49,9 +54,17 @@ export default function LoginPage() {
   const [adminEmail, setAdminEmail] = useState("")
   const [adminPassword, setAdminPassword] = useState("")
 
+  // If we were bounced here from a protected/shared link (e.g. /preread/:id),
+  // send the user back there after they sign in instead of always to /dashboard.
+  const from = (location.state as LoginRedirectState | null)?.from
+  const redirectTo =
+    from?.pathname && from.pathname !== "/login"
+      ? `${from.pathname}${from.search ?? ""}${from.hash ?? ""}`
+      : "/dashboard"
+
   useEffect(() => {
-    if (user) navigate("/dashboard", { replace: true })
-  }, [user, navigate])
+    if (user) navigate(redirectTo, { replace: true })
+  }, [user, navigate, redirectTo])
 
   const handleGoogleSuccess = async (response: CredentialResponse) => {
     if (!response.credential) {
@@ -62,7 +75,7 @@ export default function LoginPage() {
       const data = await authApi.googleLogin(response.credential)
       login(data.token, normalizeAuthUser(data.user), data.mostVisitedPages ?? [])
       toast.success("Welcome to the realm!")
-      navigate("/dashboard")
+      navigate(redirectTo, { replace: true })
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Authentication failed")
     }
@@ -83,7 +96,7 @@ export default function LoginPage() {
       const data = await authApi.login(email.trim(), password.trim())
       login(data.token, normalizeAuthUser(data.user), data.mostVisitedPages ?? [])
       toast.success("Welcome to the realm!")
-      navigate("/dashboard")
+      navigate(redirectTo, { replace: true })
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Login failed")
     } finally {
@@ -107,7 +120,7 @@ export default function LoginPage() {
       login(data.token, normalizeAuthUser(data.user), data.mostVisitedPages ?? [])
       toast.success("Logged in as Admin")
       setAdminDialogOpen(false)
-      navigate("/dashboard")
+      navigate(redirectTo, { replace: true })
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Admin login failed")
     } finally {

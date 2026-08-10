@@ -130,7 +130,7 @@ export function TopBar({ onMenuClick, onSearchOpen }: TopBarProps) {
                 </Avatar>
                 <div className="hidden min-w-0 items-start gap-1.5 lg:flex lg:flex-col">
                   <span className="truncate text-sm font-medium leading-none">{user?.name}</span>
-                  <span className="inline-flex items-center rounded-full border border-border/70 bg-card/55 px-2.5 py-1 text-[10px] capitalize leading-none text-muted-foreground">
+                  <span className="inline-flex items-center rounded-full border border-border/70 bg-muted/60 px-2.5 py-1 text-[10px] capitalize leading-tight text-muted-foreground whitespace-nowrap">
                     {formatRoleLabel(user?.role.name)}
                   </span>
                 </div>

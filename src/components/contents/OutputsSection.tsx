@@ -331,12 +331,12 @@ export function OutputsSection({ node, content, canReview }: Props) {
           </DialogHeader>
           <div className="space-y-4">
             {reviewing && (
-              <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
-                <div className="flex min-w-0 items-center gap-2">
-                  <Badge variant={APPROVAL_BADGE[reviewing.approvalState]}>
+              <div className="min-w-0 overflow-hidden rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
+                <div className="flex min-w-0 items-start gap-2">
+                  <Badge variant={APPROVAL_BADGE[reviewing.approvalState]} className="shrink-0">
                     {pretty(reviewing.approvalState)}
                   </Badge>
-                  <span className="min-w-0 truncate font-medium">{reviewing.label}</span>
+                  <span className="min-w-0 flex-1 break-words font-medium">{reviewing.label}</span>
                 </div>
               </div>
             )}
@@ -365,7 +365,13 @@ export function OutputsSection({ node, content, canReview }: Props) {
             </div>
             <div className="space-y-2">
               <Label>Note</Label>
+              {reviewing?.reviewNote ? (
+                <p className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                  Previous note: <span className="italic text-foreground/80">{reviewing.reviewNote}</span>
+                </p>
+              ) : null}
               <Textarea
+                key={reviewing?.id ?? "review-note"}
                 rows={3}
                 value={reviewForm.reviewNote}
                 placeholder="Optional comment for the submitter"

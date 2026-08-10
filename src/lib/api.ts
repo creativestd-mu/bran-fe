@@ -25,11 +25,27 @@ export class ApiError extends Error {
   }
 }
 
+function friendlyAuthMessage(message: string, status: number): string {
+  const lower = message.toLowerCase()
+  if (
+    status === 401 ||
+    lower.includes("authorization header") ||
+    lower.includes("authentication required") ||
+    lower.includes("invalid token") ||
+    lower.includes("jwt expired") ||
+    lower.includes("jwt malformed")
+  ) {
+    return "Your session expired. Please sign in again."
+  }
+  return message
+}
+
 function asApiError(error: unknown): never {
   if (axios.isAxiosError(error)) {
     const body = error.response?.data as ApiResponse | undefined
-    const message = body?.error || error.message || "Request failed"
-    throw new ApiError(message, error.response?.status ?? 0, body?.details)
+    const status = error.response?.status ?? 0
+    const raw = body?.error || error.message || "Request failed"
+    throw new ApiError(friendlyAuthMessage(raw, status), status, body?.details)
   }
   if (error instanceof Error) throw error
   throw new Error("Request failed")
@@ -70,6 +86,7 @@ class ApiClient {
           localStorage.removeItem("bran_token")
           localStorage.removeItem("bran_user")
           localStorage.removeItem("bran_most_visited")
+          window.dispatchEvent(new CustomEvent("bran:auth-expired"))
         }
         return Promise.reject(error)
       }
@@ -354,8 +371,10 @@ export const workApi = {
     form.append("file", file, filename)
     return api.postForm<import("@/types").AudioWorkResult>("/work/audio", form)
   },
-  regenerateFromTranscript: (transcript: string) =>
-    api.post<import("@/types").AudioWorkResult>("/work/transcript", { transcript }),
+  regenerateFromTranscript: (recordingId: string, transcript: string) =>
+    api.post<import("@/types").AudioWorkResult>(`/work/audio/${recordingId}/regenerate`, {
+      transcript,
+    }),
   create: (data: {
     title: string
     context: string
@@ -928,8 +947,10 @@ export const prereadApi = {
   update: (id: string, data: { title?: string; description?: string | null }) =>
     api.patch<import("@/types").PrereadDetail>(`/prereads/${id}`, data),
   remove: (id: string) => api.delete(`/prereads/${id}`),
-  replaceMembers: (id: string, userIds: string[]) =>
-    api.put<import("@/types").PrereadMember[]>(`/prereads/${id}/members`, { userIds }),
+  replaceMembers: (
+    id: string,
+    members: Array<{ userId: string; role: import("@/types").PrereadMemberRole }>
+  ) => api.put<import("@/types").PrereadMember[]>(`/prereads/${id}/members`, { members }),
   createNode: (
     id: string,
     data: {

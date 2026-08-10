@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import {
+  ChevronLeft,
+  ChevronRight,
   ImagePlus,
   Loader2,
+  Maximize2,
   MessageSquarePlus,
   Pencil,
   Send,
@@ -38,45 +42,164 @@ import "./preread.css"
 const KIND_OPTIONS: { value: PrereadNodeKind; label: string }[] = [
   { value: "output", label: "Output" },
   { value: "blocker", label: "Blocker" },
-  { value: "advice", label: "Advice" },
+  { value: "advice", label: "Recommendations" },
 ]
 
 const KIND_LABELS: Record<PrereadNodeKind, string> = {
   output: "Output",
   blocker: "Blocker",
-  advice: "Advice",
+  advice: "Recommendations",
 }
 
 function MediaSlide({
   prereadId,
   nodeId,
   media,
+  onExpand,
 }: {
   prereadId: string
   nodeId: string
   media: PrereadTreeNode["media"][number]
+  onExpand: () => void
 }) {
   const { url, loading, error } = usePrereadMediaUrl(prereadId, nodeId, media.id)
 
   return (
-    <div className="preread-read-media-slide">
+    <>
       {loading && (
-        <div className="flex h-full min-h-[220px] items-center justify-center">
+        <div className="flex h-full w-full items-center justify-center">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       )}
       {!loading && error && (
-        <div className="flex h-full min-h-[220px] items-center justify-center text-sm text-muted-foreground">
+        <div className="flex h-full w-full items-center justify-center text-sm text-muted-foreground">
           Failed to load media
         </div>
       )}
       {!loading && url && media.mediaType === "image" && (
-        <img src={url} alt={media.filename} />
+        <button
+          type="button"
+          className="preread-media-frame"
+          onClick={onExpand}
+          aria-label="View image full screen"
+        >
+          <img src={url} alt={media.filename} />
+        </button>
       )}
       {!loading && url && media.mediaType === "video" && (
-        <video src={url} controls playsInline preload="metadata" />
+        <div className="preread-media-frame">
+          <video src={url} controls playsInline preload="metadata" />
+          <button
+            type="button"
+            className="preread-slide-expand"
+            onClick={onExpand}
+            aria-label="View video full screen"
+          >
+            <Maximize2 className="h-4 w-4" />
+          </button>
+        </div>
       )}
-    </div>
+    </>
+  )
+}
+
+function MediaLightbox({
+  prereadId,
+  nodeId,
+  mediaList,
+  index,
+  onIndexChange,
+  onClose,
+}: {
+  prereadId: string
+  nodeId: string
+  mediaList: PrereadTreeNode["media"]
+  index: number
+  onIndexChange: (index: number) => void
+  onClose: () => void
+}) {
+  const media = mediaList[index]
+  const { url, loading, error } = usePrereadMediaUrl(prereadId, nodeId, media.id)
+  const hasMultiple = mediaList.length > 1
+
+  const goPrev = () => onIndexChange((index - 1 + mediaList.length) % mediaList.length)
+  const goNext = () => onIndexChange((index + 1) % mediaList.length)
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose()
+      if (e.key === "ArrowLeft" && hasMultiple) goPrev()
+      if (e.key === "ArrowRight" && hasMultiple) goNext()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, hasMultiple])
+
+  useEffect(() => {
+    const original = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = original
+    }
+  }, [])
+
+  return createPortal(
+    <div className="preread-lightbox" onClick={onClose}>
+      <button
+        type="button"
+        className="preread-lightbox-close"
+        onClick={onClose}
+        aria-label="Close full screen view"
+      >
+        <X className="h-5 w-5" />
+      </button>
+
+      {hasMultiple && (
+        <>
+          <button
+            type="button"
+            className="preread-lightbox-nav preread-lightbox-prev"
+            onClick={(e) => {
+              e.stopPropagation()
+              goPrev()
+            }}
+            aria-label="Previous media"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </button>
+          <button
+            type="button"
+            className="preread-lightbox-nav preread-lightbox-next"
+            onClick={(e) => {
+              e.stopPropagation()
+              goNext()
+            }}
+            aria-label="Next media"
+          >
+            <ChevronRight className="h-6 w-6" />
+          </button>
+        </>
+      )}
+
+      <div className="preread-lightbox-content" onClick={(e) => e.stopPropagation()}>
+        {loading && <Loader2 className="h-8 w-8 animate-spin text-white/70" />}
+        {!loading && error && <p className="text-sm text-white/70">Failed to load media</p>}
+        {!loading && url && media.mediaType === "image" && (
+          <img src={url} alt={media.filename} />
+        )}
+        {!loading && url && media.mediaType === "video" && (
+          <video src={url} controls autoPlay playsInline />
+        )}
+      </div>
+
+      {hasMultiple && (
+        <div className="preread-lightbox-counter">
+          {index + 1} / {mediaList.length}
+        </div>
+      )}
+    </div>,
+    document.body
   )
 }
 
@@ -167,6 +290,7 @@ export function PrereadNodeModal({
   const [commentComposerOpen, setCommentComposerOpen] = useState(false)
   const [activeMediaIndex, setActiveMediaIndex] = useState(0)
   const [deletingMediaId, setDeletingMediaId] = useState<string | null>(null)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
 
   useEffect(() => {
     if (!node || !open) return
@@ -177,6 +301,7 @@ export function PrereadNodeModal({
     setCommentComposerOpen(false)
     setEditing(false)
     setActiveMediaIndex(0)
+    setLightboxOpen(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [node?.id, open])
 
@@ -245,13 +370,13 @@ export function PrereadNodeModal({
 
   if (!node) return null
 
-  const isOwner = access === "owner"
+  const canEdit = access === "owner" || access === "editor"
   const canDeleteComment = (authorId: string) =>
-    isOwner || authorId === user?.id
+    canEdit || authorId === user?.id
   const hasMedia = node.media.length > 0
   const activeMedia = hasMedia ? node.media[activeMediaIndex] : null
   const displayDescription = node.description?.trim() || "No description yet."
-  const showEditor = isOwner && editing
+  const showEditor = canEdit && editing
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -260,6 +385,18 @@ export function PrereadNodeModal({
           "flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0",
           hasMedia && !showEditor ? "max-w-5xl" : "max-w-2xl"
         )}
+        onPointerDownOutside={(e) => {
+          // The fullscreen lightbox portals to document.body, outside this DialogContent's
+          // DOM subtree — without this, Radix treats clicks on its arrows/close button as
+          // "outside" and dismisses this whole node modal instead of just the lightbox.
+          if (lightboxOpen) e.preventDefault()
+        }}
+        onInteractOutside={(e) => {
+          if (lightboxOpen) e.preventDefault()
+        }}
+        onEscapeKeyDown={(e) => {
+          if (lightboxOpen) e.preventDefault()
+        }}
       >
         <DialogHeader className="shrink-0 border-b border-border px-5 py-4">
           <div className="flex items-start justify-between gap-3 pr-8">
@@ -269,7 +406,7 @@ export function PrereadNodeModal({
                 {KIND_LABELS[node.kind]}
               </span>
             </div>
-            {isOwner && (
+            {canEdit && (
               <Button
                 type="button"
                 variant="outline"
@@ -402,31 +539,70 @@ export function PrereadNodeModal({
               >
                 {hasMedia && activeMedia && (
                   <div className="preread-read-media-pane border-b border-border lg:border-b-0 lg:border-r">
-                    <MediaSlide
-                      prereadId={prereadId}
-                      nodeId={node.id}
-                      media={activeMedia}
-                    />
+                    <div className="preread-read-media-slide">
+                      {node.media.length > 1 && (
+                        <button
+                          type="button"
+                          className="preread-slide-nav preread-slide-prev"
+                          onClick={() =>
+                            setActiveMediaIndex(
+                              (i) => (i - 1 + node.media.length) % node.media.length
+                            )
+                          }
+                          aria-label="Previous media"
+                        >
+                          <ChevronLeft className="h-5 w-5" />
+                        </button>
+                      )}
+                      <MediaSlide
+                        prereadId={prereadId}
+                        nodeId={node.id}
+                        media={activeMedia}
+                        onExpand={() => setLightboxOpen(true)}
+                      />
+                      {node.media.length > 1 && (
+                        <button
+                          type="button"
+                          className="preread-slide-nav preread-slide-next"
+                          onClick={() =>
+                            setActiveMediaIndex((i) => (i + 1) % node.media.length)
+                          }
+                          aria-label="Next media"
+                        >
+                          <ChevronRight className="h-5 w-5" />
+                        </button>
+                      )}
+                    </div>
                     {node.media.length > 1 && (
-                      <div className="flex flex-wrap items-center gap-2 border-t border-border px-3 py-2">
+                      <div className="flex items-center justify-center gap-1.5 border-t border-border px-3 py-2.5">
                         {node.media.map((media, index) => (
                           <button
                             key={media.id}
                             type="button"
                             className={cn(
-                              "rounded-md border px-2 py-1 text-xs transition",
+                              "h-1.5 rounded-full transition-all",
                               index === activeMediaIndex
-                                ? "border-accent bg-accent/15 text-foreground"
-                                : "border-border text-muted-foreground hover:bg-muted"
+                                ? "w-6 bg-accent"
+                                : "w-1.5 bg-muted-foreground/35 hover:bg-muted-foreground/60"
                             )}
+                            aria-label={`Go to ${media.mediaType === "video" ? "video" : "image"} ${index + 1}`}
                             onClick={() => setActiveMediaIndex(index)}
-                          >
-                            {media.mediaType === "video" ? "Video" : "Image"} {index + 1}
-                          </button>
+                          />
                         ))}
                       </div>
                     )}
                   </div>
+                )}
+
+                {lightboxOpen && activeMedia && (
+                  <MediaLightbox
+                    prereadId={prereadId}
+                    nodeId={node.id}
+                    mediaList={node.media}
+                    index={activeMediaIndex}
+                    onIndexChange={setActiveMediaIndex}
+                    onClose={() => setLightboxOpen(false)}
+                  />
                 )}
 
                 <div

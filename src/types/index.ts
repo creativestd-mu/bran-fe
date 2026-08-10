@@ -230,6 +230,7 @@ export interface AIQueryMeta {
   taskCount: number
   adhocWorkCount?: number
   workUnitCount?: number
+  analyzedItemsCount?: number
   visionCount?: number
   kpiCount?: number
   guidanceQuery?: boolean
@@ -1359,7 +1360,8 @@ export interface BrainGraphParams {
 // ---------- Preread ----------
 
 export type PrereadNodeKind = "output" | "blocker" | "advice"
-export type PrereadAccess = "owner" | "member"
+export type PrereadMemberRole = "viewer" | "editor"
+export type PrereadAccess = "owner" | PrereadMemberRole
 
 export interface PrereadUserSummary {
   id: string
@@ -1372,6 +1374,7 @@ export interface PrereadUserSummary {
 export interface PrereadMember {
   userId: string
   user: PrereadUserSummary
+  role: PrereadMemberRole
   createdAt: string
 }
 

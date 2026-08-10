@@ -74,18 +74,18 @@ export function CommandSearch({ open, onClose }: CommandSearchProps) {
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent
-        className="overflow-hidden p-0 gap-0 max-w-lg"
+        className="max-w-lg gap-0 overflow-hidden p-0 [&>button]:right-3 [&>button]:top-3"
         onKeyDown={handleKeyDown}
         aria-label="Command search"
       >
-        <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+        <div className="flex items-center gap-3 border-b border-border py-3 pl-4 pr-12">
           <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
           <input
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search pages or describe what you want to do…"
-            className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+            className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
             autoComplete="off"
             spellCheck={false}
           />
@@ -93,7 +93,7 @@ export function CommandSearch({ open, onClose }: CommandSearchProps) {
             <button
               type="button"
               onClick={() => setQuery("")}
-              className="text-xs text-muted-foreground hover:text-foreground"
+              className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
             >
               Clear
             </button>
@@ -106,14 +106,28 @@ export function CommandSearch({ open, onClose }: CommandSearchProps) {
           onActiveIndexChange={setActiveIndex}
           onSelect={commit}
           listRef={listRef}
-          className="max-h-[360px]"
+          className="max-h-[min(50vh,420px)]"
         />
 
-        <div className="flex items-center gap-4 border-t border-border px-4 py-2 text-[11px] text-muted-foreground">
-          <span><kbd className="rounded border border-border px-1 py-0.5 font-mono text-[10px]">↑↓</kbd> navigate</span>
-          <span><kbd className="rounded border border-border px-1 py-0.5 font-mono text-[10px]">↵</kbd> open</span>
-          <span><kbd className="rounded border border-border px-1 py-0.5 font-mono text-[10px]">Esc</kbd> close</span>
-          <span className="ml-auto opacity-60">⌘K to open anytime</span>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border px-4 py-2 text-[11px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5">
+            <kbd className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded border border-border px-1 font-mono text-[10px] leading-none">
+              ↑↓
+            </kbd>
+            navigate
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <kbd className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded border border-border px-1 font-mono text-[10px] leading-none">
+              ↵
+            </kbd>
+            open
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <kbd className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded border border-border px-1 font-mono text-[10px] leading-none">
+              Esc
+            </kbd>
+            close
+          </span>
         </div>
       </DialogContent>
     </Dialog>

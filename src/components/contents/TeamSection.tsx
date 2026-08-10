@@ -97,11 +97,11 @@ export function TeamSection({ node, contentId }: Props) {
                 key={member.id}
                 className="flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2"
               >
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <Avatar className="h-7 w-7">
+                <div className="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
+                  <Avatar className="h-7 w-7 shrink-0">
                     <AvatarFallback className="text-xs">{initial}</AvatarFallback>
                   </Avatar>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1 overflow-hidden">
                     <div className="truncate text-sm font-medium">
                       {member.user.name ?? member.user.email ?? "Unknown user"}
                     </div>
@@ -111,7 +111,12 @@ export function TeamSection({ node, contentId }: Props) {
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <Badge variant="outline" className="whitespace-nowrap shrink-0">{pretty(member.role)}</Badge>
+                  <Badge
+                    variant="outline"
+                    className="shrink-0 whitespace-nowrap px-2.5 py-0.5 text-[11px] [overflow-wrap:normal]"
+                  >
+                    {pretty(member.role)}
+                  </Badge>
                   <Button
                     size="icon"
                     variant="ghost"

@@ -57,7 +57,7 @@ export function DashboardLayout() {
             isBrainMap
               ? "flex min-h-0 flex-1 flex-col overflow-hidden"
               : isDashboardHome
-                ? "flex flex-1 flex-col overflow-x-clip overflow-y-auto"
+                ? "flex min-h-0 flex-1 flex-col overflow-hidden"
                 : "flex flex-1 flex-col overflow-hidden px-3 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-7"
           }
         >

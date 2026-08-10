@@ -11,7 +11,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { prereadApi, usersApi, ApiError } from "@/lib/api"
-import type { PrereadNodeKind, PrereadTreeNode } from "@/types"
+import type { PrereadMemberRole, PrereadNodeKind, PrereadTreeNode } from "@/types"
 import { ManageAccessDialog } from "@/components/preread/ManageAccessDialog"
 import { PrereadNodeModal } from "@/components/preread/PrereadNodeModal"
 import { findTreeNode, PrereadTreeView } from "@/components/preread/PrereadTreeView"
@@ -37,7 +37,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 const KIND_OPTIONS: { value: PrereadNodeKind; label: string }[] = [
   { value: "output", label: "Output" },
   { value: "blocker", label: "Blocker" },
-  { value: "advice", label: "Advice" },
+  { value: "advice", label: "Recommendations" },
 ]
 
 function flattenNodes(tree: PrereadTreeNode[]): PrereadTreeNode[] {
@@ -93,7 +93,8 @@ export default function PrereadDetailPage() {
   }
 
   const membersMutation = useMutation({
-    mutationFn: (userIds: string[]) => prereadApi.replaceMembers(id!, userIds),
+    mutationFn: (members: Array<{ userId: string; role: PrereadMemberRole }>) =>
+      prereadApi.replaceMembers(id!, members),
     onSuccess: () => {
       invalidate()
       setAccessOpen(false)
@@ -160,6 +161,9 @@ export default function PrereadDetailPage() {
 
   if (!data) return null
 
+  const isOwner = data.access === "owner"
+  const canEdit = isOwner || data.access === "editor"
+
   return (
     <div className="mx-auto max-w-6xl space-y-4 p-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -183,12 +187,14 @@ export default function PrereadDetailPage() {
             <Copy className="mr-2 h-4 w-4" />
             Copy link
           </Button>
-          {data.access === "owner" && (
+          {isOwner && (
+            <Button type="button" variant="outline" size="sm" onClick={() => setAccessOpen(true)}>
+              <UserPlus className="mr-2 h-4 w-4" />
+              Manage access
+            </Button>
+          )}
+          {canEdit && (
             <>
-              <Button type="button" variant="outline" size="sm" onClick={() => setAccessOpen(true)}>
-                <UserPlus className="mr-2 h-4 w-4" />
-                Manage access
-              </Button>
               <Button type="button" size="sm" onClick={() => setAddNodeOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add node
@@ -236,9 +242,10 @@ export default function PrereadDetailPage() {
         onOpenChange={setAccessOpen}
         users={users}
         ownerId={data.ownerId}
-        memberUserIds={data.members.map((member) => member.userId)}
+        ownerName={data.owner.name}
+        members={data.members}
         saving={membersMutation.isPending}
-        onSave={(userIds) => membersMutation.mutate(userIds)}
+        onSave={(members) => membersMutation.mutate(members)}
       />
 
       <Dialog open={addNodeOpen} onOpenChange={setAddNodeOpen}>

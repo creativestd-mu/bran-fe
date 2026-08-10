@@ -433,6 +433,7 @@ export default function BrainMapPage() {
             backgroundColor={CANVAS_BG}
             nodeId="id"
             nodeVal="val"
+            nodeLabel={() => ""}
             nodeRelSize={3}
             linkWidth={(l) => {
               const link = l as GraphLink
@@ -458,6 +459,14 @@ export default function BrainMapPage() {
               setFocusId((node as GraphNode).id)
             }}
             onBackgroundClick={clearFocus}
+            onEngineStop={() => {
+              // Center the settled graph in the viewport (#96).
+              try {
+                graphRef.current?.zoomToFit?.(500, 80)
+              } catch {
+                /* ignore */
+              }
+            }}
           />
         )}
       </div>
@@ -625,13 +634,15 @@ export default function BrainMapPage() {
               type="date"
               value={from}
               onChange={(e) => setFrom(e.target.value)}
-              className="h-7 border-slate-700/60 bg-slate-950/60 px-2 text-[10px] text-slate-300"
+              title="From date"
+              className="h-7 border-slate-600/80 bg-slate-900/80 px-2 text-[11px] text-slate-100 [color-scheme:dark] placeholder:text-slate-400"
             />
             <Input
               type="date"
               value={to}
               onChange={(e) => setTo(e.target.value)}
-              className="h-7 border-slate-700/60 bg-slate-950/60 px-2 text-[10px] text-slate-300"
+              title="To date"
+              className="h-7 border-slate-600/80 bg-slate-900/80 px-2 text-[11px] text-slate-100 [color-scheme:dark] placeholder:text-slate-400"
             />
           </div>
         </div>

@@ -625,7 +625,13 @@ export default function AttendancePage() {
           />
           {isAdmin && (
             <>
-              <Button variant="outline" size="sm" disabled={checking || loading} onClick={handleCheck}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                disabled={checking || loading}
+                onClick={handleCheck}
+              >
                 {checking ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                 Run Check
               </Button>
@@ -941,11 +947,6 @@ export default function AttendancePage() {
             </div>
           )}
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDetailOpen(false)}>
-              Close
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -1042,7 +1043,7 @@ export default function AttendancePage() {
               Cancel
             </Button>
             <Button onClick={() => void handleSaveCounts()} disabled={savingCounts || !countDraft}>
-              {savingCounts ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
+              {savingCounts ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               Save counters
             </Button>
           </DialogFooter>

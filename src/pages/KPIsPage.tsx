@@ -171,7 +171,7 @@ export default function KPIsPage() {
     }
     const valid = batchRows.filter((r) => r.title.trim())
     if (valid.length === 0) {
-      toast.error("At least one title is required")
+      toast.error("At least one KPI title is required")
       return
     }
     setBatchSaving(true)
@@ -180,7 +180,7 @@ export default function KPIsPage() {
         userId: batchUserId,
         items: valid.map((r) => ({
           title: r.title.trim(),
-          description: r.description.trim() || undefined,
+          description: r.description.trim(),
           isKey: r.isKey,
           sortOrder: Number(r.sortOrder) || 0,
           isActive: true,
@@ -190,7 +190,12 @@ export default function KPIsPage() {
       setBatchOpen(false)
       fetchKpis(pagination.page)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to create KPIs")
+      const message = err instanceof Error ? err.message : "Failed to create KPIs"
+      toast.error(
+        message.toLowerCase().includes("validation")
+          ? "Check each KPI has a title. Description is optional."
+          : message
+      )
     } finally {
       setBatchSaving(false)
     }
@@ -414,7 +419,7 @@ export default function KPIsPage() {
                 <SelectTrigger>
                   <SelectValue placeholder="Select person" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper" className="z-[100] max-h-60">
                   {users.map((u) => (
                     <SelectItem key={u.id} value={u.id}>
                       {u.name}

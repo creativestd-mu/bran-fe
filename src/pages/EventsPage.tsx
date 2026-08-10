@@ -171,12 +171,14 @@ export default function EventsPage() {
             escalations, attendance, and work units.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           <Button
-            variant="outline"
+            variant="secondary"
+            size="sm"
+            className="gap-1.5 border border-border/70"
             onClick={() => void handleDetect()}
             disabled={detecting}
-            title="Auto-runs in the background; click to run immediately"
+            title="Scan Gmail, Meet, and related sources for new events"
           >
             {detecting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -186,6 +188,8 @@ export default function EventsPage() {
             Detect now
           </Button>
           <Button
+            size="sm"
+            className="gap-1.5"
             onClick={() => {
               setCreateForm(emptyCreate)
               setCreateOpen(true)
@@ -356,8 +360,8 @@ function EventCard({ event }: { event: OrgEvent }) {
   const confidence = isAuto ? confidenceLabel(event.confidence) : null
 
   return (
-    <Link to={`/events/${event.id}`} className="group block">
-      <Card className="h-full transition-colors group-hover:border-primary/40 group-hover:bg-card/80">
+    <Link to={`/events/${event.id}`} className="group block h-full">
+      <Card className="flex h-full flex-col transition-colors group-hover:border-primary/40 group-hover:bg-card/80">
         <CardHeader className="space-y-3 pb-3">
           <div className="flex flex-wrap items-center gap-2">
             <Badge
@@ -386,12 +390,14 @@ function EventCard({ event }: { event: OrgEvent }) {
               </Badge>
             )}
           </div>
-          <CardTitle className="line-clamp-2 text-base leading-snug">{event.title}</CardTitle>
-          {event.description && (
-            <CardDescription className="line-clamp-2">{event.description}</CardDescription>
-          )}
+          <CardTitle className="line-clamp-2 min-h-[2.5rem] break-words text-base leading-snug">
+            {event.title}
+          </CardTitle>
+          <CardDescription className="line-clamp-2 min-h-[2.5rem] break-words">
+            {event.description || "\u00a0"}
+          </CardDescription>
         </CardHeader>
-        <CardContent className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+        <CardContent className="mt-auto flex items-center justify-between gap-2 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1.5">
             <CalendarClock className="h-3.5 w-3.5" />
             {event.updateCount} update{event.updateCount === 1 ? "" : "s"}

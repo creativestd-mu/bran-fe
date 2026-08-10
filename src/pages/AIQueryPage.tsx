@@ -85,7 +85,12 @@ export default function AIQueryPage() {
       setHistory((prev) => [entry, ...prev.filter((e) => e.id !== entry.id)])
       setActiveResult(entry)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to query AI")
+      const message = err instanceof Error ? err.message : "Failed to query AI"
+      toast.error(
+        /internal server error/i.test(message)
+          ? "AI query failed. Please try again in a moment."
+          : message
+      )
     } finally {
       setLoading(false)
     }
@@ -103,7 +108,7 @@ export default function AIQueryPage() {
         history.map((entry) => (
           <button
             key={entry.id}
-            className={`w-full rounded-lg p-2.5 pr-3 text-left text-sm transition-colors ${
+            className={`w-full min-w-0 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
               activeResult?.id === entry.id
                 ? "bg-primary/15 text-accent"
                 : "text-muted-foreground hover:bg-muted"
@@ -114,7 +119,7 @@ export default function AIQueryPage() {
             }}
           >
             <p className="truncate font-medium">{entry.query}</p>
-            <p className="mt-0.5 text-xs opacity-60">{entry.timestamp.toLocaleString()}</p>
+            <p className="mt-0.5 truncate text-xs opacity-60">{entry.timestamp.toLocaleString()}</p>
           </button>
         ))
       )}
@@ -181,20 +186,25 @@ export default function AIQueryPage() {
                   <Badge variant="outline" className="gap-1.5 py-1">
                     <Clock className="h-3 w-3" />
                     {(() => {
+                      const tz = "Asia/Kolkata"
                       const from = new Date(meta.timeRange.from)
                       const to = new Date(meta.timeRange.to)
-                      // If `to` is just the day after `from` (exclusive end), show a single date
-                      const diffMs = to.getTime() - from.getTime()
-                      const oneDayMs = 24 * 60 * 60 * 1000
-                      if (diffMs <= oneDayMs) {
-                        return from.toLocaleDateString()
-                      }
-                      return `${from.toLocaleDateString()} — ${to.toLocaleDateString()}`
+                      const dayKey = (d: Date) =>
+                        d.toLocaleDateString("en-CA", { timeZone: tz })
+                      const label = (d: Date) =>
+                        d.toLocaleDateString(undefined, { timeZone: tz })
+                      // Same calendar day in app TZ → single date (fixes "yesterday" spanning 2 days)
+                      if (dayKey(from) === dayKey(to)) return label(from)
+                      return `${label(from)} — ${label(to)}`
                     })()}
                   </Badge>
                   <Badge variant="outline" className="gap-1.5 py-1">
                     <BarChart3 className="h-3 w-3" />
-                    {meta.taskCount} tasks analyzed
+                    {(meta.analyzedItemsCount ??
+                      (meta.taskCount ?? 0) +
+                        (meta.adhocWorkCount ?? 0) +
+                        (meta.workUnitCount ?? 0))}{" "}
+                    items analyzed
                   </Badge>
                   {meta.adhocWorkCount != null && (
                     <Badge variant="outline" className="gap-1.5 py-1">

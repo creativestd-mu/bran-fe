@@ -284,10 +284,10 @@ export default function ContentsPage() {
                   <Link
                     key={content.id}
                     to={`/contents/${content.id}`}
-                    className="group flex flex-col rounded-lg border border-border bg-background p-4 transition-colors hover:border-primary/50"
+                    className="group flex h-full min-h-[180px] flex-col rounded-lg border border-border bg-background p-4 transition-colors hover:border-primary/50"
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 space-y-1.5">
+                    <div className="flex min-w-0 items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1 space-y-1.5">
                         <div className="flex flex-wrap items-center gap-1.5 text-xs">
                           <Badge variant={CONTENT_TYPE_BADGE[content.type]}>{pretty(content.type)}</Badge>
                           <Badge variant={CONTENT_STATUS_BADGE[content.status]}>{pretty(content.status)}</Badge>
@@ -297,38 +297,46 @@ export default function ContentsPage() {
                             </Badge>
                           )}
                         </div>
-                        <h3 className="font-semibold text-foreground">{content.title}</h3>
-                        {content.description && (
-                          <p className="text-sm text-muted-foreground line-clamp-2">{content.description}</p>
+                        <h3 className="line-clamp-2 break-words font-semibold text-foreground">{content.title}</h3>
+                        {content.description ? (
+                          <p className="line-clamp-2 break-words text-sm text-muted-foreground">
+                            {content.description}
+                          </p>
+                        ) : (
+                          <p className="text-sm text-muted-foreground/50">No description</p>
                         )}
                       </div>
-                      <ChevronRight className="mt-1 h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                      <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
                     </div>
-                    <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
-                      {content.project?.vertical?.name && (
-                        <span className="inline-flex items-center gap-1">
-                          <Layers className="h-3 w-3" />
-                          {content.project.vertical.name}
+                    <div className="mt-auto space-y-2 pt-3">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+                        {content.project?.vertical?.name && (
+                          <span className="inline-flex min-w-0 items-center gap-1">
+                            <Layers className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{content.project.vertical.name}</span>
+                          </span>
+                        )}
+                        {content.project?.name && (
+                          <span className="inline-flex min-w-0 items-center gap-1">
+                            <FolderKanban className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{content.project.name}</span>
+                          </span>
+                        )}
+                        {content.team?.name && (
+                          <span className="inline-flex min-w-0 items-center gap-1">
+                            <UsersRound className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{content.team.name}</span>
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                        <span>
+                          {total} node{total === 1 ? "" : "s"} · {completed} done
                         </span>
-                      )}
-                      {content.project?.name && (
-                        <span className="inline-flex items-center gap-1">
-                          <FolderKanban className="h-3 w-3" />
-                          {content.project.name}
-                        </span>
-                      )}
-                      {content.team?.name && (
-                        <span className="inline-flex items-center gap-1">
-                          <UsersRound className="h-3 w-3" />
-                          {content.team.name}
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-                      <span>
-                        {total} node{total === 1 ? "" : "s"} · {completed} done
-                      </span>
-                      {content.createdBy?.name && <span>by {content.createdBy.name}</span>}
+                        {content.createdBy?.name && (
+                          <span className="truncate">by {content.createdBy.name}</span>
+                        )}
+                      </div>
                     </div>
                   </Link>
                 )

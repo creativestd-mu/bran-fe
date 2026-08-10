@@ -1,4 +1,4 @@
-import { Navigate } from "react-router-dom"
+import { Navigate, useLocation } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
 import type { RoleName } from "@/types"
 import { hasPermission, hasRole } from "@/types"
@@ -11,6 +11,7 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children, roles, permissions }: ProtectedRouteProps) {
   const { user, loading } = useAuth()
+  const location = useLocation()
 
   if (loading) {
     return (
@@ -21,7 +22,9 @@ export function ProtectedRoute({ children, roles, permissions }: ProtectedRouteP
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />
+    // Remember where the user was headed so LoginPage can send them back after signing in
+    // (e.g. a shared /preread/:id link) instead of dropping them on the dashboard.
+    return <Navigate to="/login" state={{ from: location }} replace />
   }
 
   if (roles && !hasRole(user, ...roles)) {

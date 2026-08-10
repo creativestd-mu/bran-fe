@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { contentsApi, projectsApi, teamsApi } from "@/lib/api"
-import { firstValidationError, validateRequiredSelection, validateRequiredText } from "@/lib/validation"
+import { validateRequiredSelection, validateRequiredText } from "@/lib/validation"
 import type { ContentType } from "@/types"
 import {
   CONTENT_TYPES,
@@ -48,6 +48,7 @@ export function CreateContentDialog({ open, onOpenChange }: Props) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [form, setForm] = useState(empty)
+  const [validationErrors, setValidationErrors] = useState<string[]>([])
 
   const projectsQuery = useQuery({
     queryKey: ["projects"],
@@ -85,7 +86,10 @@ export function CreateContentDialog({ open, onOpenChange }: Props) {
     }
   }, [selectedProject, teams, form.teamId])
 
-  const reset = () => setForm(empty)
+  const reset = () => {
+    setForm(empty)
+    setValidationErrors([])
+  }
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -121,15 +125,13 @@ export function CreateContentDialog({ open, onOpenChange }: Props) {
   })
 
   const submit = () => {
-    const validationError = firstValidationError(
+    const errors = [
       validateRequiredText(form.title, "Title"),
       validateRequiredSelection(form.projectId, "Project"),
-      validateRequiredSelection(form.teamId, "Team")
-    )
-    if (validationError) {
-      toast.error(validationError)
-      return
-    }
+      validateRequiredSelection(form.teamId, "Team"),
+    ].filter(Boolean) as string[]
+    setValidationErrors(errors)
+    if (errors.length > 0) return
     createMutation.mutate()
   }
 
@@ -141,7 +143,7 @@ export function CreateContentDialog({ open, onOpenChange }: Props) {
         if (!next) reset()
       }}
     >
-      <DialogContent>
+      <DialogContent className="max-h-[min(90vh,720px)] overflow-y-auto overscroll-contain">
         <DialogHeader>
           <DialogTitle>New content</DialogTitle>
         </DialogHeader>
@@ -246,6 +248,15 @@ export function CreateContentDialog({ open, onOpenChange }: Props) {
                 checked={form.seedNodes}
                 onCheckedChange={(checked) => setForm((p) => ({ ...p, seedNodes: checked }))}
               />
+            </div>
+          )}
+          {validationErrors.length > 0 && (
+            <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2">
+              <ul className="space-y-0.5 text-xs text-destructive">
+                {validationErrors.map((error) => (
+                  <li key={error}>• {error}</li>
+                ))}
+              </ul>
             </div>
           )}
         </div>
