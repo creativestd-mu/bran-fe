@@ -17,6 +17,7 @@ import {
   LogOut,
   UsersRound,
   FolderKanban,
+  Boxes,
   FileVideo,
   Wrench,
   Lightbulb,
@@ -31,6 +32,8 @@ import {
   Compass,
   Target,
   Package,
+  SmilePlus,
+  ClipboardCheck,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -70,7 +73,10 @@ const navItems: NavItem[] = [
   { label: "AI Query", path: "/ai", icon: <Brain className="h-4 w-4" />, permissions: ["query_ai"] },
   { label: "Social Stats", path: "/social-stats", icon: <BarChart3 className="h-4 w-4" />, roles: ["admin", "manager"] },
   { label: "Social Insights", path: "/social-insights", icon: <Share2 className="h-4 w-4" /> },
+  { label: "Sentiment", path: "/sentiment", icon: <SmilePlus className="h-4 w-4" /> },
+  { label: "Reviews", path: "/reviews", icon: <ClipboardCheck className="h-4 w-4" /> },
   { label: "Teams", path: "/teams", icon: <UsersRound className="h-4 w-4" />, roles: ["admin", "manager"] },
+  { label: "Pods", path: "/pods", icon: <Boxes className="h-4 w-4" />, roles: ["admin", "manager", "chief_of_staff"] },
   { label: "Projects", path: "/projects", icon: <FolderKanban className="h-4 w-4" />, roles: ["admin", "manager"] },
   { label: "Hierarchy", path: "/hierarchy", icon: <Network className="h-4 w-4" />, roles: ["admin", "manager", "chief_of_staff"] },
   { label: "Utility", path: "/utility", icon: <Wrench className="h-4 w-4" /> },

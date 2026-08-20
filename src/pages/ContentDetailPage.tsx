@@ -6,7 +6,7 @@ import { ChevronLeft, FolderKanban, Layers, Pencil, Trash2, UsersRound } from "l
 import { firstValidationError, validateRequiredSelection, validateRequiredText } from "@/lib/validation"
 import { contentsApi, projectsApi, teamsApi } from "@/lib/api"
 import { useAuth } from "@/contexts/AuthContext"
-import { hasRole } from "@/types"
+import { hasRole, projectVerticalId } from "@/types"
 import type { ContentStatus, ContentType } from "@/types"
 import {
   CONTENT_STATUSES,
@@ -93,19 +93,20 @@ export default function ContentDetailPage() {
     () => editProjects.find((p) => p.id === editForm.projectId) ?? null,
     [editProjects, editForm.projectId]
   )
+  const editSelectedVerticalId = projectVerticalId(editSelectedProject)
   const editEligibleTeams = useMemo(() => {
-    if (!editSelectedProject?.verticalId) return editTeams
-    return editTeams.filter((t) => t.verticalId === editSelectedProject.verticalId)
-  }, [editTeams, editSelectedProject])
+    if (!editSelectedVerticalId) return editTeams
+    return editTeams.filter((t) => t.verticalId === editSelectedVerticalId)
+  }, [editTeams, editSelectedVerticalId])
 
   useEffect(() => {
     if (!editOpen) return
-    if (!editSelectedProject?.verticalId) return
+    if (!editSelectedVerticalId) return
     const team = editTeams.find((t) => t.id === editForm.teamId)
-    if (team && team.verticalId !== editSelectedProject.verticalId) {
+    if (team && team.verticalId !== editSelectedVerticalId) {
       setEditForm((p) => ({ ...p, teamId: "" }))
     }
-  }, [editOpen, editSelectedProject, editTeams, editForm.teamId])
+  }, [editOpen, editSelectedVerticalId, editTeams, editForm.teamId])
 
   const updateMutation = useMutation({
     mutationFn: () =>

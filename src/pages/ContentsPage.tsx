@@ -14,6 +14,7 @@ import {
 } from "lucide-react"
 import { contentsApi, projectsApi, teamsApi, verticalsApi } from "@/lib/api"
 import type { ContentStatus, ContentType } from "@/types"
+import { projectVerticalId } from "@/types"
 import {
   CONTENT_STATUSES,
   CONTENT_STATUS_BADGE,
@@ -68,7 +69,7 @@ export default function ContentsPage() {
 
   const visibleProjects = useMemo(() => {
     if (verticalId === ANY) return projects
-    return projects.filter((p) => p.verticalId === verticalId)
+    return projects.filter((p) => projectVerticalId(p) === verticalId)
   }, [projects, verticalId])
 
   const visibleTeams = useMemo(() => {

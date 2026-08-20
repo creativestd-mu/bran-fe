@@ -12,6 +12,7 @@ import {
   Network,
   UsersRound,
   FolderKanban,
+  Boxes,
   FileVideo,
   Wrench,
   Lightbulb,
@@ -26,6 +27,8 @@ import {
   Compass,
   Target,
   Package,
+  SmilePlus,
+  ClipboardCheck,
 } from "lucide-react"
 import { hasPermission, hasRole, type User } from "@/types"
 
@@ -249,6 +252,27 @@ export const NAV_SEARCH_INDEX: NavSearchItem[] = [
     ],
   },
   {
+    label: "Sentiment",
+    path: "/sentiment",
+    description: "Earned mention volume, reach, and sentiment from Meltwater",
+    icon: SmilePlus,
+    keywords: [
+      "sentiment", "earned media", "meltwater", "brand mention", "press",
+      "coverage", "reach", "mention volume", "positive", "negative",
+      "neutral", "listening", "brand health", "news coverage",
+    ],
+  },
+  {
+    label: "Reviews",
+    path: "/reviews",
+    description: "Send and respond to peer review requests",
+    icon: ClipboardCheck,
+    keywords: [
+      "review", "peer review", "feedback", "accept", "reject", "pending review",
+      "review request", "file review", "reminder", "slack review",
+    ],
+  },
+  {
     label: "Teams",
     path: "/teams",
     description: "Manage teams across verticals",
@@ -258,6 +282,17 @@ export const NAV_SEARCH_INDEX: NavSearchItem[] = [
       "manage team", "team member", "who is in", "team list",
     ],
     roles: ["admin", "manager"],
+  },
+  {
+    label: "Pods",
+    path: "/pods",
+    description: "Manage pods, owned IPs, and inspiration accounts",
+    icon: Boxes,
+    keywords: [
+      "pod", "pods", "owned ip", "inspiration", "instagram", "youtube", "linkedin",
+      "twitter", "x account", "social account", "apify", "content unit",
+    ],
+    roles: ["admin", "manager", "chief_of_staff"],
   },
   {
     label: "Projects",

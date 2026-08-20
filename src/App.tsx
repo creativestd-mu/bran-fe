@@ -13,12 +13,16 @@ import TasksPage from "@/pages/TasksPage"
 import AIQueryPage from "@/pages/AIQueryPage"
 import SocialStatsPage from "@/pages/SocialStatsPage"
 import SocialInsightsPage from "@/pages/SocialInsightsPage"
+import SentimentPage from "@/pages/SentimentPage"
+import ReviewsPage from "@/pages/ReviewsPage"
 import ProfilePage from "@/pages/ProfilePage"
 import SettingsPage from "@/pages/SettingsPage"
 import ForbiddenPage from "@/pages/ForbiddenPage"
 import HierarchyPage from "@/pages/HierarchyPage"
 import TeamsPage from "@/pages/TeamsPage"
 import ProjectsPage from "@/pages/ProjectsPage"
+import PodsPage from "@/pages/PodsPage"
+import PodDetailPage from "@/pages/PodDetailPage"
 import TeamDetailPage from "@/pages/TeamDetailPage"
 import ProjectDetailPage from "@/pages/ProjectDetailPage"
 import ContentsPage from "@/pages/ContentsPage"
@@ -158,6 +162,8 @@ function App() {
           }
         />
         <Route path="/social-insights" element={<SocialInsightsPage />} />
+        <Route path="/sentiment" element={<SentimentPage />} />
+        <Route path="/reviews" element={<ReviewsPage />} />
         <Route
           path="/hierarchy"
           element={
@@ -179,6 +185,22 @@ function App() {
           element={
             <ProtectedRoute roles={["admin", "manager"]}>
               <TeamDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/pods"
+          element={
+            <ProtectedRoute roles={["admin", "manager", "chief_of_staff"]}>
+              <PodsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/pods/:id"
+          element={
+            <ProtectedRoute roles={["admin", "manager", "chief_of_staff"]}>
+              <PodDetailPage />
             </ProtectedRoute>
           }
         />

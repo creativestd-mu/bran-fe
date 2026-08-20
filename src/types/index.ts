@@ -363,18 +363,98 @@ export interface ProjectPhase {
   orderIndex: number
 }
 
+export type PodSocialKind = "OWNED_IP" | "INSPIRATION"
+export type PodSocialPlatform = "YOUTUBE" | "X" | "INSTAGRAM" | "LINKEDIN"
+export type PodAccountSyncStatus = "SUCCESS" | "ERROR" | "SKIPPED"
+
+export interface PodSocialAccount {
+  id: string
+  podId: string
+  kind: PodSocialKind | string
+  platform: PodSocialPlatform | string
+  handle: string
+  url: string
+  platformAccountId?: string | null
+  isActive: boolean
+  lastSyncedAt?: string | null
+  lastSyncStatus?: PodAccountSyncStatus | string | null
+  lastSyncError?: string | null
+  createdAt?: string
+  updatedAt?: string
+  _count?: { posts: number }
+}
+
+export interface PodSocialPost {
+  id: string
+  accountId: string
+  platformPostId: string
+  url?: string | null
+  title?: string | null
+  caption?: string | null
+  author?: string | null
+  publishedAt?: string | null
+  metrics?: Record<string, number | null> | null
+  syncedAt?: string
+  account?: {
+    id: string
+    podId: string
+    kind: string
+    platform: string
+    handle: string
+    url: string
+    lastSyncedAt?: string | null
+    pod?: { id: string; name: string }
+  }
+}
+
+export interface Pod {
+  id: string
+  name: string
+  description?: string | null
+  verticalId: string
+  headUserId: string
+  isActive: boolean
+  createdAt?: string
+  updatedAt?: string
+  vertical?: { id: string; name: string; slug: string }
+  head?: { id: string; name: string | null; email: string | null }
+  socialAccounts?: PodSocialAccount[]
+  projects?: Array<{ id: string; name: string; status: string }>
+  _count?: { projects: number; socialAccounts: number }
+}
+
+export interface PodAccountSyncResult {
+  accountId: string
+  podId: string
+  platform: string
+  handle: string
+  status: PodAccountSyncStatus | string
+  upserted: number
+  error?: string
+}
+
 export interface Project {
   id: string
   name: string
   description?: string | null
   objectives?: string | null
   finalLink?: string | null
+  podId: string
+  /** @deprecated Prefer pod.verticalId — kept for transitional UI filters */
   verticalId?: string | null
   status?: string
   startsAt?: string | null
   endsAt?: string | null
   createdAt?: string
   updatedAt?: string
+  pod?: {
+    id: string
+    name: string
+    verticalId: string
+    isActive?: boolean
+    vertical?: { id: string; name: string; slug: string }
+    head?: { id: string; name: string | null; email: string | null }
+  }
   vertical?: { id: string; name: string; slug: string }
   createdBy?: { id: string; name: string; email: string }
   phases?: ProjectPhase[]
@@ -392,9 +472,16 @@ export interface Vertical {
   owner?: { id: string; name: string; email: string } | null
   createdAt: string
   updatedAt: string
-  _count?: { teams: number; projects: number }
+  _count?: { teams: number; pods?: number; projects?: number }
   teams: Team[]
-  projects: Project[]
+  pods?: Pod[]
+  /** Flattened from pods for older UI; may be empty after Pods migration */
+  projects?: Project[]
+}
+
+export function projectVerticalId(project: Project | null | undefined): string | null {
+  if (!project) return null
+  return project.pod?.verticalId ?? project.verticalId ?? project.pod?.vertical?.id ?? project.vertical?.id ?? null
 }
 
 export interface HierarchyMemberPayload {
@@ -425,6 +512,8 @@ const PERMISSION_ROLE_FALLBACK: Record<string, RoleName[]> = {
   approve_rental_resources: ["superadmin", "admin", "chief_of_staff"],
   create_tasks: ["superadmin", "admin", "manager", "content_creator", "chief_of_staff"],
   query_ai: ["superadmin", "admin", "manager", "content_creator", "chief_of_staff"],
+  manage_pods: ["superadmin", "admin", "manager", "chief_of_staff"],
+  manage_projects: ["superadmin", "admin", "manager", "chief_of_staff"],
 }
 
 export function hasPermission(user: User | null, permission: string): boolean {
@@ -1437,4 +1526,85 @@ export interface PrereadDetail {
   tree: PrereadTreeNode[]
   createdAt: string
   updatedAt: string
+}
+
+export type SentimentPreset = "7d" | "14d" | "30d" | "this_week" | "this_month"
+
+export interface SentimentCounts {
+  positive: number
+  neutral: number
+  negative: number
+  unknown: number
+}
+
+export interface SentimentDashboardTotals {
+  mentionCount: number
+  reach: number
+  estimatedViews: number
+  sentiment: SentimentCounts
+  sentimentShare: SentimentCounts
+  netSentiment: number
+  dominant: keyof SentimentCounts | "none"
+}
+
+export interface SentimentSeriesPoint {
+  date: string
+  mentionCount: number
+  reach: number
+  estimatedViews: number
+  sentiment: SentimentCounts
+  sentimentShare: SentimentCounts
+  netSentiment: number
+}
+
+export interface SentimentDashboard {
+  timezone: string
+  range: { from: string; to: string }
+  totals: SentimentDashboardTotals
+  series: SentimentSeriesPoint[]
+  searches: Array<{ searchId: string; searchName: string | null }>
+}
+
+export interface SentimentSyncResult {
+  from: string
+  to: string
+  timezone: string
+  searches: Array<{ searchId: string; searchName: string; days: number }>
+  stored: number
+}
+
+export type ReviewStatus = "pending" | "accepted" | "rejected"
+
+export interface ReviewUserSummary {
+  id: string
+  name: string
+  email: string
+  avatarUrl: string | null
+}
+
+export interface ReviewRequest {
+  id: string
+  requestedById: string
+  requestedToId: string
+  context: string
+  fileUrl: string | null
+  storagePath: string | null
+  fileName: string | null
+  contentType: string | null
+  status: ReviewStatus
+  responseComment: string | null
+  respondedAt: string | null
+  slackChannelId: string | null
+  slackMessageTs: string | null
+  createdAt: string
+  updatedAt: string
+  requestedBy: ReviewUserSummary
+  requestedTo: ReviewUserSummary
+}
+
+export interface ReviewReminderPreference {
+  times: string[]
+  enabled: boolean
+  lastRemindedSlot: string | null
+  lastRemindedOn: string | null
 }

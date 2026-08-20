@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { projectsApi, verticalsApi } from "@/lib/api"
-import type { Project, Vertical } from "@/types"
+import { projectsApi, podsApi, verticalsApi } from "@/lib/api"
+import type { Pod, Project, Vertical } from "@/types"
+import { projectVerticalId } from "@/types"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -25,14 +26,16 @@ import { Search, Plus, Pencil, Trash2, Users } from "lucide-react"
 interface FormState {
   name: string
   description: string
-  verticalId: string
+  podId: string
 }
 
-const emptyForm = (verticalId = ""): FormState => ({ name: "", description: "", verticalId })
+const emptyForm = (podId = ""): FormState => ({ name: "", description: "", podId })
 
 export default function ProjectsPage() {
   const navigate = useNavigate()
   const [verticals, setVerticals] = useState<Vertical[]>([])
+  const [pods, setPods] = useState<Pod[]>([])
+  const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [activeVerticalId, setActiveVerticalId] = useState<string>("")
@@ -46,45 +49,69 @@ export default function ProjectsPage() {
   const [editingProject, setEditingProject] = useState<Project | null>(null)
   const [deletingProject, setDeletingProject] = useState<Project | null>(null)
 
-  const fetchVerticals = async () => {
+  const fetchAll = async () => {
     setLoading(true)
     try {
-      const data = await verticalsApi.list()
-      setVerticals(data)
+      const [verticalData, podData, projectData] = await Promise.all([
+        verticalsApi.list(),
+        podsApi.list({ isActive: true }),
+        projectsApi.list(),
+      ])
+      setVerticals(verticalData)
+      setPods(podData)
+      setProjects(projectData)
       setActiveVerticalId((current) => {
-        if (current && data.some((v) => v.id === current)) return current
-        return data[0]?.id ?? ""
+        if (current && verticalData.some((v) => v.id === current)) return current
+        return verticalData[0]?.id ?? ""
       })
     } catch {
-      toast.error("Failed to load verticals")
+      toast.error("Failed to load projects")
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => { fetchVerticals() }, [])
+  useEffect(() => {
+    void fetchAll()
+  }, [])
 
-  const activeVertical = useMemo(
-    () => verticals.find((v) => v.id === activeVerticalId) ?? null,
-    [verticals, activeVerticalId]
+  const podsForActiveVertical = useMemo(
+    () => pods.filter((pod) => pod.verticalId === activeVerticalId),
+    [pods, activeVerticalId]
   )
 
+  const projectsByVertical = useMemo(() => {
+    const map = new Map<string, Project[]>()
+    for (const project of projects) {
+      const verticalId = projectVerticalId(project)
+      if (!verticalId) continue
+      const list = map.get(verticalId) ?? []
+      list.push(project)
+      map.set(verticalId, list)
+    }
+    return map
+  }, [projects])
+
   const visibleProjects = useMemo(() => {
-    const projects = activeVertical?.projects ?? []
-    if (!search) return projects
+    const list = projectsByVertical.get(activeVerticalId) ?? []
+    if (!search) return list
     const q = search.toLowerCase()
-    return projects.filter((p) => p.name.toLowerCase().includes(q))
-  }, [activeVertical, search])
+    return list.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.pod?.name?.toLowerCase().includes(q)
+    )
+  }, [projectsByVertical, activeVerticalId, search])
 
   const openCreate = () => {
-    setForm(emptyForm(activeVerticalId))
+    setForm(emptyForm(podsForActiveVertical[0]?.id ?? ""))
     setCreateOpen(true)
   }
 
   const handleCreate = async () => {
     const validationError = firstValidationError(
       validateRequiredText(form.name, "Project name"),
-      validateRequiredSelection(form.verticalId, "Vertical")
+      validateRequiredSelection(form.podId, "Pod")
     )
     if (validationError) {
       toast.error(validationError)
@@ -95,13 +122,14 @@ export default function ProjectsPage() {
       await projectsApi.create({
         name: form.name.trim(),
         description: form.description.trim() || undefined,
-        verticalId: form.verticalId,
+        podId: form.podId,
       })
       toast.success("Project created")
       setCreateOpen(false)
-      setForm(emptyForm(activeVerticalId))
-      setActiveVerticalId(form.verticalId)
-      fetchVerticals()
+      setForm(emptyForm())
+      const selectedPod = pods.find((pod) => pod.id === form.podId)
+      if (selectedPod) setActiveVerticalId(selectedPod.verticalId)
+      await fetchAll()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create project")
     } finally {
@@ -114,14 +142,17 @@ export default function ProjectsPage() {
     setForm({
       name: project.name,
       description: project.description ?? "",
-      verticalId: project.verticalId ?? activeVerticalId,
+      podId: project.podId,
     })
     setEditOpen(true)
   }
 
   const handleEdit = async () => {
     if (!editingProject) return
-    const validationError = validateRequiredText(form.name, "Project name")
+    const validationError = firstValidationError(
+      validateRequiredText(form.name, "Project name"),
+      validateRequiredSelection(form.podId, "Pod")
+    )
     if (validationError) {
       toast.error(validationError)
       return
@@ -131,13 +162,13 @@ export default function ProjectsPage() {
       await projectsApi.update(editingProject.id, {
         name: form.name.trim(),
         description: form.description.trim() || undefined,
-        verticalId: form.verticalId || undefined,
+        podId: form.podId,
       })
       toast.success("Project updated")
       setEditOpen(false)
       setEditingProject(null)
-      setForm(emptyForm(activeVerticalId))
-      fetchVerticals()
+      setForm(emptyForm())
+      await fetchAll()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update project")
     } finally {
@@ -158,7 +189,7 @@ export default function ProjectsPage() {
       toast.success("Project deleted")
       setDeleteOpen(false)
       setDeletingProject(null)
-      fetchVerticals()
+      await fetchAll()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to delete project")
     } finally {
@@ -166,9 +197,9 @@ export default function ProjectsPage() {
     }
   }
 
-  const renderProjectGrid = (projects: Project[]) => (
+  const renderProjectGrid = (items: Project[]) => (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {projects.map((project) => (
+      {items.map((project) => (
         <div
           key={project.id}
           role="button"
@@ -190,8 +221,11 @@ export default function ProjectsPage() {
                 {project.members?.length ?? 0}
               </Badge>
             </div>
+            {project.pod?.name && (
+              <p className="mt-1 text-xs text-muted-foreground">Pod: {project.pod.name}</p>
+            )}
             {project.description && (
-              <p className="mt-1.5 text-sm text-muted-foreground line-clamp-2">{project.description}</p>
+              <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">{project.description}</p>
             )}
           </div>
           <div className="mt-4 flex gap-2">
@@ -223,18 +257,40 @@ export default function ProjectsPage() {
     </div>
   )
 
+  const podSelect = (
+    <div className="space-y-2">
+      <Label>Pod *</Label>
+      <Select
+        value={form.podId}
+        onValueChange={(value) => setForm((prev) => ({ ...prev, podId: value }))}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="Select a pod" />
+        </SelectTrigger>
+        <SelectContent>
+          {pods.map((pod) => (
+            <SelectItem key={pod.id} value={pod.id}>
+              {pod.name}
+              {pod.vertical?.name ? ` · ${pod.vertical.name}` : ""}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  )
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="font-brand text-2xl tracking-wide text-accent">Projects</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Manage projects across your verticals
+            Manage projects owned by pods across your verticals
           </p>
         </div>
         <Button
           onClick={openCreate}
-          disabled={!activeVerticalId}
+          disabled={pods.length === 0}
           className="gap-2 self-start"
         >
           <Plus className="h-4 w-4" />
@@ -259,12 +315,16 @@ export default function ProjectsPage() {
             <div className="space-y-4">
               <Skeleton className="h-10 w-72 rounded-md" />
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {[1, 2, 3].map((i) => <Skeleton key={i} className="h-36 w-full rounded-lg" />)}
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-36 w-full rounded-lg" />
+                ))}
               </div>
             </div>
           ) : verticals.length === 0 ? (
+            <div className="py-12 text-center text-muted-foreground">No verticals available yet.</div>
+          ) : pods.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground">
-              No verticals available yet.
+              Create a pod first, then attach projects to it.
             </div>
           ) : (
             <Tabs value={activeVerticalId} onValueChange={setActiveVerticalId}>
@@ -273,24 +333,24 @@ export default function ProjectsPage() {
                   <TabsTrigger key={v.id} value={v.id} className="flex-1 gap-2">
                     <span>{v.name}</span>
                     <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
-                      {v._count?.projects ?? v.projects.length}
+                      {projectsByVertical.get(v.id)?.length ?? 0}
                     </Badge>
                   </TabsTrigger>
                 ))}
               </TabsList>
 
               {verticals.map((v) => {
-                const projects = v.id === activeVerticalId ? visibleProjects : v.projects
+                const items = v.id === activeVerticalId ? visibleProjects : projectsByVertical.get(v.id) ?? []
                 return (
                   <TabsContent key={v.id} value={v.id} className="mt-4">
-                    {projects.length === 0 ? (
+                    {items.length === 0 ? (
                       <div className="py-12 text-center text-muted-foreground">
                         {search
                           ? `No projects match your search in ${v.name}.`
                           : `No projects in ${v.name} yet.`}
                       </div>
                     ) : (
-                      renderProjectGrid(projects)
+                      renderProjectGrid(items)
                     )}
                   </TabsContent>
                 )
@@ -300,96 +360,114 @@ export default function ProjectsPage() {
         </CardContent>
       </Card>
 
-      {/* Create Dialog */}
-      <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) setForm(emptyForm(activeVerticalId)) }}>
+      <Dialog
+        open={createOpen}
+        onOpenChange={(open) => {
+          setCreateOpen(open)
+          if (!open) setForm(emptyForm())
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create Project</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Vertical *</Label>
-              <Select
-                value={form.verticalId}
-                onValueChange={(value) => setForm((p) => ({ ...p, verticalId: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a vertical" />
-                </SelectTrigger>
-                <SelectContent>
-                  {verticals.map((v) => (
-                    <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {podSelect}
             <div className="space-y-2">
               <Label>Name *</Label>
-              <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="Brand Campaign Q3" />
+              <Input
+                value={form.name}
+                onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                placeholder="Brand Campaign Q3"
+              />
             </div>
             <div className="space-y-2">
               <Label>Description</Label>
-              <Textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} placeholder="What this project is about..." rows={3} />
+              <Textarea
+                value={form.description}
+                onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+                placeholder="What this project is about..."
+                rows={3}
+              />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={saving}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={saving}>{saving ? "Creating..." : "Create Project"}</Button>
+            <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreate} disabled={saving}>
+              {saving ? "Creating..." : "Create Project"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Edit Dialog */}
-      <Dialog open={editOpen} onOpenChange={(open) => { setEditOpen(open); if (!open) { setEditingProject(null); setForm(emptyForm(activeVerticalId)) } }}>
+      <Dialog
+        open={editOpen}
+        onOpenChange={(open) => {
+          setEditOpen(open)
+          if (!open) {
+            setEditingProject(null)
+            setForm(emptyForm())
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Project</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Vertical</Label>
-              <Select
-                value={form.verticalId}
-                onValueChange={(value) => setForm((p) => ({ ...p, verticalId: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a vertical" />
-                </SelectTrigger>
-                <SelectContent>
-                  {verticals.map((v) => (
-                    <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {podSelect}
             <div className="space-y-2">
               <Label>Name *</Label>
-              <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
+              <Input
+                value={form.name}
+                onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+              />
             </div>
             <div className="space-y-2">
               <Label>Description</Label>
-              <Textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} rows={3} />
+              <Textarea
+                value={form.description}
+                onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+                rows={3}
+              />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditOpen(false)} disabled={saving}>Cancel</Button>
-            <Button onClick={handleEdit} disabled={saving}>{saving ? "Saving..." : "Save Changes"}</Button>
+            <Button variant="outline" onClick={() => setEditOpen(false)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button onClick={handleEdit} disabled={saving}>
+              {saving ? "Saving..." : "Save Changes"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteOpen} onOpenChange={(open) => { setDeleteOpen(open); if (!open) setDeletingProject(null) }}>
+      <Dialog
+        open={deleteOpen}
+        onOpenChange={(open) => {
+          setDeleteOpen(open)
+          if (!open) setDeletingProject(null)
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Project</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Are you sure you want to delete <span className="font-medium text-foreground">{deletingProject?.name}</span>? This will remove all member associations. This action cannot be undone.
+            Are you sure you want to delete{" "}
+            <span className="font-medium text-foreground">{deletingProject?.name}</span>? This will
+            remove all member associations. This action cannot be undone.
           </p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={saving}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={saving}>{saving ? "Deleting..." : "Delete Project"}</Button>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={saving}>
+              {saving ? "Deleting..." : "Delete Project"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

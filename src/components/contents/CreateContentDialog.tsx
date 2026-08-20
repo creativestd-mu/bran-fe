@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { contentsApi, projectsApi, teamsApi } from "@/lib/api"
 import { validateRequiredSelection, validateRequiredText } from "@/lib/validation"
 import type { ContentType } from "@/types"
+import { projectVerticalId } from "@/types"
 import {
   CONTENT_TYPES,
   PRODUCTION_PRESET,
@@ -71,20 +72,22 @@ export function CreateContentDialog({ open, onOpenChange }: Props) {
   )
 
   // Teams are filtered to those that share the selected project's vertical.
+  const selectedVerticalId = projectVerticalId(selectedProject)
+
   const eligibleTeams = useMemo(() => {
-    if (!selectedProject?.verticalId) return teams
-    return teams.filter((t) => t.verticalId === selectedProject.verticalId)
-  }, [teams, selectedProject])
+    if (!selectedVerticalId) return teams
+    return teams.filter((t) => t.verticalId === selectedVerticalId)
+  }, [teams, selectedVerticalId])
 
   // If the selected team no longer matches the project's vertical, clear it.
   useEffect(() => {
     if (!form.teamId) return
-    if (!selectedProject?.verticalId) return
+    if (!selectedVerticalId) return
     const team = teams.find((t) => t.id === form.teamId)
-    if (team && team.verticalId !== selectedProject.verticalId) {
+    if (team && team.verticalId !== selectedVerticalId) {
       setForm((p) => ({ ...p, teamId: "" }))
     }
-  }, [selectedProject, teams, form.teamId])
+  }, [selectedVerticalId, teams, form.teamId])
 
   const reset = () => {
     setForm(empty)

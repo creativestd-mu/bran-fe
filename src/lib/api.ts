@@ -311,10 +311,82 @@ export const teamsApi = {
   deleteMember: (memberId: string) => api.delete(`/teams/members/${memberId}`),
 }
 
+export const podsApi = {
+  list: (params?: { verticalId?: string; isActive?: boolean }) =>
+    api.get<import("@/types").Pod[]>("/pods", params as Record<string, unknown>),
+  getById: (id: string) => api.get<import("@/types").Pod>(`/pods/${id}`),
+  create: (data: {
+    name: string
+    description?: string
+    verticalId: string
+    headUserId: string
+    isActive?: boolean
+  }) => api.post<import("@/types").Pod>("/pods", data),
+  update: (
+    id: string,
+    data: {
+      name?: string
+      description?: string | null
+      verticalId?: string
+      headUserId?: string
+      isActive?: boolean
+    }
+  ) => api.put<import("@/types").Pod>(`/pods/${id}`, data),
+  deactivate: (id: string) => api.delete(`/pods/${id}`),
+  listAccounts: (
+    podId: string,
+    params?: { kind?: string; platform?: string; isActive?: boolean }
+  ) =>
+    api.get<import("@/types").PodSocialAccount[]>(
+      `/pods/${podId}/accounts`,
+      params as Record<string, unknown>
+    ),
+  addAccount: (
+    podId: string,
+    data: {
+      kind: import("@/types").PodSocialKind
+      platform: import("@/types").PodSocialPlatform
+      handle: string
+      url?: string
+      platformAccountId?: string
+      isActive?: boolean
+    }
+  ) => api.post<import("@/types").PodSocialAccount>(`/pods/${podId}/accounts`, data),
+  updateAccount: (
+    accountId: string,
+    data: Partial<{
+      kind: import("@/types").PodSocialKind
+      platform: import("@/types").PodSocialPlatform
+      handle: string
+      url: string
+      platformAccountId: string | null
+      isActive: boolean
+    }>
+  ) => api.put<import("@/types").PodSocialAccount>(`/pods/accounts/${accountId}`, data),
+  deleteAccount: (accountId: string) => api.delete(`/pods/accounts/${accountId}`),
+  syncAccount: (accountId: string) =>
+    api.post<import("@/types").PodAccountSyncResult>(`/pods/accounts/${accountId}/sync`),
+  listPosts: (
+    podId: string,
+    params?: {
+      accountId?: string
+      kind?: string
+      platform?: string
+      from?: string
+      to?: string
+      limit?: number
+    }
+  ) =>
+    api.get<import("@/types").PodSocialPost[]>(
+      `/pods/${podId}/posts`,
+      params as Record<string, unknown>
+    ),
+}
+
 export const projectsApi = {
   list: () => api.get<import("@/types").Project[]>("/projects"),
   getById: (id: string) => api.get<import("@/types").Project>(`/projects/${id}`),
-  create: (data: { name: string; description?: string; verticalId?: string }) =>
+  create: (data: { name: string; description?: string; podId: string; status?: string }) =>
     api.post<import("@/types").Project>("/projects", data),
   upsertHierarchy: (data: {
     projectId?: string
@@ -326,8 +398,10 @@ export const projectsApi = {
       reportsToUserId: string | null
     }>
   }) => api.post<import("@/types").Project>("/projects/hierarchy", data),
-  update: (id: string, data: { name?: string; description?: string; verticalId?: string | null }) =>
-    api.put<import("@/types").Project>(`/projects/${id}`, data),
+  update: (
+    id: string,
+    data: { name?: string; description?: string; podId?: string; status?: string }
+  ) => api.put<import("@/types").Project>(`/projects/${id}`, data),
   delete: (id: string) => api.delete(`/projects/${id}`),
   addMember: (projectId: string, data: import("@/types").HierarchyMemberPayload) =>
     api.post<import("@/types").HierarchyMember>(`/projects/${projectId}/members`, data),
@@ -996,4 +1070,50 @@ export const prereadApi = {
     api.downloadBlob(`/prereads/${id}/nodes/${nodeId}/media/${mediaId}`),
   deleteMedia: (id: string, nodeId: string, mediaId: string) =>
     api.delete(`/prereads/${id}/nodes/${nodeId}/media/${mediaId}`),
+}
+
+/** Earned-media sentiment — /en/v1/sentiment ≡ /api/sentiment */
+export const sentimentApi = {
+  dashboard: (params?: {
+    from?: string
+    to?: string
+    searchId?: string
+    preset?: import("@/types").SentimentPreset
+  }) =>
+    api.get<import("@/types").SentimentDashboard>(
+      "/sentiment",
+      params as Record<string, unknown>
+    ),
+  sync: (data?: { from?: string; to?: string; searchIds?: string[] }) =>
+    api.post<import("@/types").SentimentSyncResult>("/sentiment/sync", data ?? {}),
+}
+
+/** Peer review requests — /en/v1/reviews ≡ /api/reviews */
+export const reviewApi = {
+  list: (params?: {
+    direction?: "incoming" | "outgoing" | "all"
+    status?: import("@/types").ReviewStatus | "all"
+  }) =>
+    api.get<import("@/types").ReviewRequest[]>("/reviews", params as Record<string, unknown>),
+  get: (id: string) => api.get<import("@/types").ReviewRequest>(`/reviews/${id}`),
+  create: (data: {
+    requestedToId: string
+    context: string
+    fileUrl?: string
+    file?: File
+  }) => {
+    const form = new FormData()
+    form.append("requestedToId", data.requestedToId)
+    form.append("context", data.context)
+    if (data.fileUrl) form.append("fileUrl", data.fileUrl)
+    if (data.file) form.append("file", data.file)
+    return api.postForm<import("@/types").ReviewRequest>("/reviews", form)
+  },
+  respond: (id: string, data: { decision: "accepted" | "rejected"; comment: string }) =>
+    api.post<import("@/types").ReviewRequest>(`/reviews/${id}/respond`, data),
+  downloadFile: (id: string) => api.downloadBlob(`/reviews/${id}/file`),
+  getReminderPreferences: () =>
+    api.get<import("@/types").ReviewReminderPreference>("/reviews/reminders/preferences"),
+  updateReminderPreferences: (data: { times: string[]; enabled: boolean }) =>
+    api.put<import("@/types").ReviewReminderPreference>("/reviews/reminders/preferences", data),
 }
