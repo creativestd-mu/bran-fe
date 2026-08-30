@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
+import { useAuth } from "@/contexts/AuthContext"
 import { eventsApi } from "@/lib/api"
 import type {
   OrgEvent,
@@ -8,6 +9,7 @@ import type {
   OrgEventStatus,
   OrgEventUpdate,
 } from "@/types"
+import { hasRole } from "@/types"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -133,6 +135,7 @@ function sourceLabel(sourceType: string): string {
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { user } = useAuth()
 
   const [event, setEvent] = useState<OrgEvent | null>(null)
   const [loading, setLoading] = useState(true)
@@ -337,6 +340,8 @@ export default function EventDetailPage() {
   }
 
   const isManual = event.kind === "MANUAL"
+  // Manual events: any signed-in user. Auto events: admin only.
+  const canDelete = isManual || hasRole(user, "admin")
   const isAuto = event.kind === "AUTO"
   const confidence = confidencePct(event.confidence)
 
@@ -466,7 +471,7 @@ export default function EventDetailPage() {
               ))}
             </SelectContent>
           </Select>
-          {isManual && (
+          {canDelete && (
             <Button variant="outline" size="sm" onClick={() => setDeleteOpen(true)}>
               <Trash2 className="h-4 w-4" />
               Delete
