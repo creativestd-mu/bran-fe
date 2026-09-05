@@ -257,6 +257,7 @@ export const usersApi = {
       roleId: string
       isActive: boolean
       isPlaceholder: boolean
+      tasksPrivate: boolean
       email: string
       managerUserId: string | null
       reportMode: "with_user" | "reattach_to_previous"

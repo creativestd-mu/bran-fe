@@ -23,6 +23,7 @@ import {
   validateRequiredText,
 } from "@/lib/validation"
 import { formatRoleLabel } from "@/lib/utils"
+import { Switch } from "@/components/ui/switch"
 import { ReparentTeamDialog, type ReparentTeamPrompt } from "@/components/hierarchy/ReparentTeamDialog"
 import type { ReparentMode } from "@/components/hierarchy/hierarchyUtils"
 
@@ -44,6 +45,7 @@ export default function UserDetailPage() {
     designation: "",
     roleId: "",
     managerUserId: null as string | null,
+    tasksPrivate: false,
   })
   const [saving, setSaving] = useState(false)
   const [addSocialOpen, setAddSocialOpen] = useState(false)
@@ -74,6 +76,7 @@ export default function UserDetailPage() {
           designation: userData.designation || "",
           roleId: userData.roleId,
           managerUserId: userData.managerUserId ?? null,
+          tasksPrivate: Boolean(userData.tasksPrivate),
         })
       } catch {
         toast.error("Failed to load user details")
@@ -92,6 +95,10 @@ export default function UserDetailPage() {
       phone: editForm.phone,
       designation: editForm.designation,
       roleId: editForm.roleId,
+    }
+
+    if (canManageUsers) {
+      payload.tasksPrivate = editForm.tasksPrivate
     }
 
     const managerChanged =
@@ -298,6 +305,24 @@ export default function UserDetailPage() {
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+                )}
+                {canManageUsers && (
+                  <div className="flex items-start justify-between gap-4 rounded-lg border border-border p-3 sm:col-span-2">
+                    <div className="space-y-1">
+                      <Label htmlFor="tasks-private">Private tasks</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Only this member can see their work units. Others can still assign tasks to them.
+                        Only superadmin retains access.
+                      </p>
+                    </div>
+                    <Switch
+                      id="tasks-private"
+                      checked={editForm.tasksPrivate}
+                      onCheckedChange={(checked) =>
+                        setEditForm((p) => ({ ...p, tasksPrivate: checked }))
+                      }
+                    />
                   </div>
                 )}
               </div>

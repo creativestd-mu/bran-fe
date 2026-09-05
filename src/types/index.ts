@@ -18,6 +18,8 @@ export interface User {
   managerUserId?: string | null
   /** Open role / new-hire slot on the org chart (cannot sign in). */
   isPlaceholder?: boolean
+  /** When true, only this member (and superadmin) can see their work units. */
+  tasksPrivate?: boolean
   lastLoginAt: string | null
   createdAt: string
   updatedAt: string
