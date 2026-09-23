@@ -195,6 +195,7 @@ export default function WorkUnitsPage() {
   const [teamLoading, setTeamLoading] = useState(false)
   const [teamPagination, setTeamPagination] = useState(emptyPagination)
   const [teamMemberId, setTeamMemberId] = useState("")
+  const [scope, setScope] = useState<"mine" | "team">("mine")
 
   const [users, setUsers] = useState<User[]>([])
   const [assigneeUsers, setAssigneeUsers] = useState<User[]>([])
@@ -382,6 +383,10 @@ export default function WorkUnitsPage() {
   useEffect(() => {
     void fetchTeamUnits(1, tab)
   }, [fetchTeamUnits, tab])
+
+  useEffect(() => {
+    if (!canViewTeam && scope === "team") setScope("mine")
+  }, [canViewTeam, scope])
 
   const openEdit = (unit: WorkUnit) => {
     setEditing(unit)
@@ -655,7 +660,7 @@ export default function WorkUnitsPage() {
         </div>
       )}
 
-      {(canViewTeam || filters.from || filters.to) && (
+      {(filters.from || filters.to || canViewTeam) && (
         <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border/60 bg-card/40 p-3">
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">From</Label>
@@ -688,142 +693,151 @@ export default function WorkUnitsPage() {
       )}
 
       <Tabs
-        value={tab}
-        onValueChange={(v) => {
-          setTab(v as WorkUnitStatus)
-        }}
+        value={scope}
+        onValueChange={(v) => setScope(v as "mine" | "team")}
       >
-        <TabsList>
-          <TabsTrigger value="OPEN">Open</TabsTrigger>
-          <TabsTrigger value="CLOSED">Closed</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value={tab} className="space-y-8">
-          <section className="space-y-3">
-            <div>
-              <h2 className="text-sm font-semibold tracking-wide text-foreground">My tasks</h2>
-              <p className="text-xs text-muted-foreground">Work units assigned to you.</p>
-            </div>
-            <UnitList
-              units={myUnits}
-              loading={myLoading}
-              tab={tab}
-              isManager={isManager}
-              userId={user?.id}
-              emptyLabel={`No ${tab === "OPEN" ? "open" : "closed"} tasks assigned to you.`}
-              onEdit={openEdit}
-              onDelete={setDeleting}
-              onToggleStep={handleToggleStepDone}
-              canManage={canManageUnit}
-            />
-            {!myLoading && myPagination.totalPages > 1 && (
-              <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
-                <span>{myPagination.total} units</span>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                    disabled={myPagination.page <= 1}
-                    onClick={() => fetchMyUnits(myPagination.page - 1, tab)}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <span>
-                    {myPagination.page} / {myPagination.totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8"
-                    disabled={!myPagination.hasNextPage}
-                    onClick={() => fetchMyUnits(myPagination.page + 1, tab)}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <TabsList>
+            <TabsTrigger value="mine">My tasks</TabsTrigger>
+            {canViewTeam && <TabsTrigger value="team">My team's tasks</TabsTrigger>}
+          </TabsList>
+          <div className="flex flex-wrap items-center gap-2">
+            {scope === "team" && canViewTeam && teamMembers.length > 0 && (
+              <Select value={teamMemberId} onValueChange={setTeamMemberId}>
+                <SelectTrigger className="h-9 w-[200px]">
+                  <SelectValue placeholder="Select member" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teamMembers.map((member) => (
+                    <SelectItem key={member.id} value={member.id}>
+                      {member.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
-          </section>
+            <div className="inline-flex h-9 items-center rounded-lg bg-muted p-1 text-muted-foreground">
+              <button
+                type="button"
+                className={`inline-flex items-center justify-center rounded-md px-3 py-1 text-sm font-medium transition-all ${
+                  tab === "OPEN"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "hover:text-foreground"
+                }`}
+                onClick={() => setTab("OPEN")}
+              >
+                Open
+              </button>
+              <button
+                type="button"
+                className={`inline-flex items-center justify-center rounded-md px-3 py-1 text-sm font-medium transition-all ${
+                  tab === "CLOSED"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "hover:text-foreground"
+                }`}
+                onClick={() => setTab("CLOSED")}
+              >
+                Closed
+              </button>
+            </div>
+          </div>
+        </div>
 
-          {canViewTeam && (
-            <section className="space-y-3">
-              <div className="flex flex-wrap items-end justify-between gap-3">
-                <div>
-                  <h2 className="text-sm font-semibold tracking-wide text-foreground">My team's tasks</h2>
-                  <p className="text-xs text-muted-foreground">
-                    Work units for people who report to you.
-                  </p>
-                </div>
-                {teamMembers.length > 0 && (
-                  <div className="min-w-[200px] space-y-1">
-                    <Label className="text-xs text-muted-foreground">Team member</Label>
-                    <Select value={teamMemberId} onValueChange={setTeamMemberId}>
-                      <SelectTrigger className="h-9">
-                        <SelectValue placeholder="Select member" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {teamMembers.map((member) => (
-                          <SelectItem key={member.id} value={member.id}>
-                            {member.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+        <TabsContent value="mine" className="space-y-3">
+          <UnitList
+            units={myUnits}
+            loading={myLoading}
+            tab={tab}
+            isManager={isManager}
+            userId={user?.id}
+            emptyLabel={`No ${tab === "OPEN" ? "open" : "closed"} tasks assigned to you.`}
+            onEdit={openEdit}
+            onDelete={setDeleting}
+            onToggleStep={handleToggleStepDone}
+            canManage={canManageUnit}
+          />
+          {!myLoading && myPagination.totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+              <span>{myPagination.total} units</span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  disabled={myPagination.page <= 1}
+                  onClick={() => fetchMyUnits(myPagination.page - 1, tab)}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span>
+                  {myPagination.page} / {myPagination.totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  disabled={!myPagination.hasNextPage}
+                  onClick={() => fetchMyUnits(myPagination.page + 1, tab)}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
-              {teamMembers.length === 0 ? (
-                <p className="rounded-lg border border-border p-8 text-center text-sm text-muted-foreground">
-                  No team members report to you yet.
-                </p>
-              ) : (
-                <>
-                  <UnitList
-                    units={teamUnits}
-                    loading={teamLoading}
-                    tab={tab}
-                    isManager={isManager}
-                    userId={user?.id}
-                    emptyLabel={`No ${tab === "OPEN" ? "open" : "closed"} tasks for this team member.`}
-                    onEdit={openEdit}
-                    onDelete={setDeleting}
-                    onToggleStep={handleToggleStepDone}
-                    canManage={canManageUnit}
-                  />
-                  {!teamLoading && teamPagination.totalPages > 1 && (
-                    <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
-                      <span>{teamPagination.total} units</span>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8"
-                          disabled={teamPagination.page <= 1}
-                          onClick={() => fetchTeamUnits(teamPagination.page - 1, tab)}
-                        >
-                          <ChevronLeft className="h-4 w-4" />
-                        </Button>
-                        <span>
-                          {teamPagination.page} / {teamPagination.totalPages}
-                        </span>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8"
-                          disabled={!teamPagination.hasNextPage}
-                          onClick={() => fetchTeamUnits(teamPagination.page + 1, tab)}
-                        >
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </section>
+            </div>
           )}
         </TabsContent>
+
+        {canViewTeam && (
+          <TabsContent value="team" className="space-y-3">
+            {teamMembers.length === 0 ? (
+              <p className="rounded-lg border border-border p-8 text-center text-sm text-muted-foreground">
+                No team members report to you yet.
+              </p>
+            ) : (
+              <>
+                <UnitList
+                  units={teamUnits}
+                  loading={teamLoading}
+                  tab={tab}
+                  isManager={isManager}
+                  userId={user?.id}
+                  emptyLabel={`No ${tab === "OPEN" ? "open" : "closed"} tasks for this team member.`}
+                  onEdit={openEdit}
+                  onDelete={setDeleting}
+                  onToggleStep={handleToggleStepDone}
+                  canManage={canManageUnit}
+                />
+                {!teamLoading && teamPagination.totalPages > 1 && (
+                  <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+                    <span>{teamPagination.total} units</span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        disabled={teamPagination.page <= 1}
+                        onClick={() => fetchTeamUnits(teamPagination.page - 1, tab)}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <span>
+                        {teamPagination.page} / {teamPagination.totalPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        disabled={!teamPagination.hasNextPage}
+                        onClick={() => fetchTeamUnits(teamPagination.page + 1, tab)}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </TabsContent>
+        )}
       </Tabs>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
