@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
 import { projectsApi, usersApi, workApi } from "@/lib/api"
@@ -175,23 +175,44 @@ export default function WorkUnitsPage() {
   const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const recordingFilter = searchParams.get("recording")
-  const isManager = hasRole(user, "admin", "manager", "superadmin")
+  const canViewTeam = hasRole(user, "admin", "manager", "superadmin", "chief_of_staff")
+  const isManager = canViewTeam
   const canCreate = hasPermission(user, "create_tasks")
 
-  const [tab, setTab] = useState<WorkUnitStatus>("OPEN")
-  const [units, setUnits] = useState<WorkUnit[]>([])
-  const [loading, setLoading] = useState(true)
-  const [pagination, setPagination] = useState({
+  const emptyPagination = {
     page: 1,
     pageSize: 20,
     total: 0,
     totalPages: 1,
     hasNextPage: false,
-  })
+  }
+
+  const [tab, setTab] = useState<WorkUnitStatus>("OPEN")
+  const [myUnits, setMyUnits] = useState<WorkUnit[]>([])
+  const [myLoading, setMyLoading] = useState(true)
+  const [myPagination, setMyPagination] = useState(emptyPagination)
+  const [teamUnits, setTeamUnits] = useState<WorkUnit[]>([])
+  const [teamLoading, setTeamLoading] = useState(false)
+  const [teamPagination, setTeamPagination] = useState(emptyPagination)
+  const [teamMemberId, setTeamMemberId] = useState("")
 
   const [users, setUsers] = useState<User[]>([])
   const [assigneeUsers, setAssigneeUsers] = useState<User[]>([])
-  const [filters, setFilters] = useState({ userId: "all", from: "", to: "" })
+  const [filters, setFilters] = useState({ from: "", to: "" })
+
+  const teamMembers = useMemo(() => {
+    if (user?.directReports && user.directReports.length > 0) {
+      return user.directReports
+    }
+    return users
+      .filter((member) => member.managerUserId === user?.id && member.id !== user?.id)
+      .map((member) => ({
+        id: member.id,
+        name: member.name,
+        email: member.email,
+        designation: member.designation,
+      }))
+  }, [user, users])
 
   const [createOpen, setCreateOpen] = useState(false)
   const [createForm, setCreateForm] = useState<WorkForm>(emptyForm())
@@ -222,43 +243,65 @@ export default function WorkUnitsPage() {
   }, [])
 
   useEffect(() => {
-    if (!isManager) return
+    if (!canViewTeam) return
     usersApi
       .list({ page: 1, pageSize: 100, isActive: true })
       .then((res) => setUsers(res.items))
       .catch(() => {})
-  }, [isManager])
+  }, [canViewTeam])
 
   useEffect(() => {
-    if (!canCreate && !isManager) return
+    if (!canCreate && !canViewTeam) return
     usersApi
       .listAll({ isActive: true })
       .then(setAssigneeUsers)
       .catch(() => {})
-  }, [canCreate, isManager])
+  }, [canCreate, canViewTeam])
 
-  const fetchUnits = useCallback(
+  useEffect(() => {
+    if (teamMembers.length === 0) {
+      if (teamMemberId) setTeamMemberId("")
+      return
+    }
+    if (!teamMemberId || !teamMembers.some((member) => member.id === teamMemberId)) {
+      setTeamMemberId(teamMembers[0].id)
+    }
+  }, [teamMembers, teamMemberId])
+
+  const buildListParams = useCallback(
+    (page: number, status: WorkUnitStatus, ownerUserId?: string) => {
+      const params: Parameters<typeof workApi.list>[0] = {
+        page,
+        pageSize: recordingFilter ? 100 : 20,
+      }
+      if (!recordingFilter) params.status = status
+      if (ownerUserId) params.userId = ownerUserId
+      if (filters.from) params.from = new Date(filters.from).toISOString()
+      if (filters.to) {
+        const end = new Date(filters.to)
+        end.setHours(23, 59, 59, 999)
+        params.to = end.toISOString()
+      }
+      return params
+    },
+    [filters.from, filters.to, recordingFilter]
+  )
+
+  const fetchMyUnits = useCallback(
     async (page = 1, status: WorkUnitStatus = tab) => {
-      setLoading(true)
+      if (!user?.id) {
+        setMyUnits([])
+        setMyLoading(false)
+        return
+      }
+      setMyLoading(true)
       try {
-        const params: Parameters<typeof workApi.list>[0] = {
-          page,
-          pageSize: recordingFilter ? 100 : 20,
-        }
-        if (!recordingFilter) params.status = status
-        if (isManager && filters.userId !== "all") params.userId = filters.userId
-        if (filters.from) params.from = new Date(filters.from).toISOString()
-        if (filters.to) {
-          const end = new Date(filters.to)
-          end.setHours(23, 59, 59, 999)
-          params.to = end.toISOString()
-        }
-        const res = await workApi.list(params)
+        const res = await workApi.list(buildListParams(page, status, user.id))
         const items = recordingFilter
           ? res.items.filter((unit) => unit.audioRecordingId === recordingFilter)
           : res.items
-        setUnits(items)
-        setPagination(
+        setMyUnits(items)
+        setMyPagination(
           recordingFilter
             ? {
                 page: 1,
@@ -270,17 +313,75 @@ export default function WorkUnitsPage() {
             : res.pagination
         )
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Failed to load work units")
+        toast.error(err instanceof Error ? err.message : "Failed to load your work units")
       } finally {
-        setLoading(false)
+        setMyLoading(false)
       }
     },
-    [filters, isManager, recordingFilter, tab]
+    [buildListParams, recordingFilter, tab, user?.id]
   )
 
+  const fetchTeamUnits = useCallback(
+    async (page = 1, status: WorkUnitStatus = tab, memberId = teamMemberId) => {
+      if (!canViewTeam || !memberId) {
+        setTeamUnits([])
+        setTeamPagination(emptyPagination)
+        setTeamLoading(false)
+        return
+      }
+      setTeamLoading(true)
+      try {
+        const res = await workApi.list(buildListParams(page, status, memberId))
+        const items = recordingFilter
+          ? res.items.filter((unit) => unit.audioRecordingId === recordingFilter)
+          : res.items
+        setTeamUnits(items)
+        setTeamPagination(
+          recordingFilter
+            ? {
+                page: 1,
+                pageSize: items.length || 20,
+                total: items.length,
+                totalPages: 1,
+                hasNextPage: false,
+              }
+            : res.pagination
+        )
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to load team work units")
+      } finally {
+        setTeamLoading(false)
+      }
+    },
+    [buildListParams, canViewTeam, recordingFilter, tab, teamMemberId]
+  )
+
+  const refreshLists = useCallback(
+    (pageMy = 1, pageTeam = 1, status: WorkUnitStatus = tab) => {
+      void fetchMyUnits(pageMy, status)
+      void fetchTeamUnits(pageTeam, status)
+    },
+    [fetchMyUnits, fetchTeamUnits, tab]
+  )
+
+  const syncUnitInLists = useCallback((unit: WorkUnit) => {
+    const patch = (prev: WorkUnit[]) => prev.map((item) => (item.id === unit.id ? unit : item))
+    setMyUnits(patch)
+    setTeamUnits(patch)
+  }, [])
+
+  const removeUnitFromLists = useCallback((unitId: string) => {
+    setMyUnits((prev) => prev.filter((unit) => unit.id !== unitId))
+    setTeamUnits((prev) => prev.filter((unit) => unit.id !== unitId))
+  }, [])
+
   useEffect(() => {
-    fetchUnits(1, tab)
-  }, [fetchUnits, tab])
+    void fetchMyUnits(1, tab)
+  }, [fetchMyUnits, tab])
+
+  useEffect(() => {
+    void fetchTeamUnits(1, tab)
+  }, [fetchTeamUnits, tab])
 
   const openEdit = (unit: WorkUnit) => {
     setEditing(unit)
@@ -298,13 +399,13 @@ export default function WorkUnitsPage() {
 
   useEffect(() => {
     const unitId = searchParams.get("unit")
-    if (!unitId || loading || units.length === 0) return
-    const unit = units.find((item) => item.id === unitId)
+    if (!unitId || myLoading || teamLoading) return
+    const unit = myUnits.find((item) => item.id === unitId) ?? teamUnits.find((item) => item.id === unitId)
     if (unit) {
       openEdit(unit)
       setSearchParams({}, { replace: true })
     }
-  }, [loading, searchParams, setSearchParams, units])
+  }, [myLoading, myUnits, searchParams, setSearchParams, teamLoading, teamUnits])
 
   const handleMappingAssignment = async (
     unitId: string,
@@ -315,7 +416,7 @@ export default function WorkUnitsPage() {
     setAssigneeSavingKey(savingKey)
     try {
       const updated = await workApi.patchAssignments(unitId, patchPayloadForMapping(mapping, assigneeId))
-      setUnits((prev) => prev.map((item) => (item.id === updated.id ? updated : item)))
+      syncUnitInLists(updated)
       if (editing?.id === updated.id) {
         setEditing(updated)
         setEditForm(unitToForm(updated))
@@ -353,7 +454,7 @@ export default function WorkUnitsPage() {
       toast.success("Work unit created")
       setCreateOpen(false)
       setCreateForm(emptyForm())
-      fetchUnits(1, tab)
+      refreshLists(1, 1, tab)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create work unit")
     } finally {
@@ -371,10 +472,10 @@ export default function WorkUnitsPage() {
     setSaving(true)
     try {
       const updated = await workApi.update(editing.id, formToPayload(editForm))
-      setUnits((prev) => prev.map((u) => (u.id === updated.id ? updated : u)))
+      syncUnitInLists(updated)
       toast.success("Work unit updated")
       setEditing(null)
-      if (updated.status !== tab) fetchUnits(pagination.page, tab)
+      if (updated.status !== tab) refreshLists(myPagination.page, teamPagination.page, tab)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update work unit")
     } finally {
@@ -392,15 +493,15 @@ export default function WorkUnitsPage() {
     try {
       const updated = await workApi.update(unit.id, { steps })
       if (updated.status !== tab) {
-        setUnits((prev) => prev.filter((u) => u.id !== updated.id))
-        fetchUnits(pagination.page, tab)
+        removeUnitFromLists(updated.id)
+        refreshLists(myPagination.page, teamPagination.page, tab)
         if (updated.status === "CLOSED" && tab === "OPEN") {
           toast.success("All steps done — work unit closed")
         } else if (updated.status === "OPEN" && tab === "CLOSED") {
           toast.success("Work unit reopened")
         }
       } else {
-        setUnits((prev) => prev.map((u) => (u.id === updated.id ? updated : u)))
+        syncUnitInLists(updated)
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update step")
@@ -414,7 +515,7 @@ export default function WorkUnitsPage() {
       await workApi.delete(deleting.id)
       toast.success("Work unit deleted")
       setDeleting(null)
-      fetchUnits(pagination.page, tab)
+      refreshLists(myPagination.page, teamPagination.page, tab)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to delete work unit")
     } finally {
@@ -554,27 +655,8 @@ export default function WorkUnitsPage() {
         </div>
       )}
 
-      {isManager && (
+      {(canViewTeam || filters.from || filters.to) && (
         <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border/60 bg-card/40 p-3">
-          <div className="min-w-[140px] flex-1 space-y-1">
-            <Label className="text-xs text-muted-foreground">Person</Label>
-            <Select
-              value={filters.userId}
-              onValueChange={(v) => setFilters((p) => ({ ...p, userId: v }))}
-            >
-              <SelectTrigger className="h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Everyone</SelectItem>
-                {users.map((u) => (
-                  <SelectItem key={u.id} value={u.id}>
-                    {u.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">From</Label>
             <DateInput
@@ -589,15 +671,15 @@ export default function WorkUnitsPage() {
               onChange={(e) => setFilters((p) => ({ ...p, to: e.target.value }))}
             />
           </div>
-          <Button size="sm" variant="secondary" onClick={() => fetchUnits(1, tab)}>
+          <Button size="sm" variant="secondary" onClick={() => refreshLists(1, 1, tab)}>
             Apply
           </Button>
           <Button
             size="sm"
             variant="secondary"
             className="gap-1.5 border border-border/80 font-medium text-foreground"
-            onClick={() => setFilters({ userId: "all", from: "", to: "" })}
-            disabled={filters.userId === "all" && !filters.from && !filters.to}
+            onClick={() => setFilters({ from: "", to: "" })}
+            disabled={!filters.from && !filters.to}
           >
             <X className="h-3.5 w-3.5" />
             Clear
@@ -616,46 +698,130 @@ export default function WorkUnitsPage() {
           <TabsTrigger value="CLOSED">Closed</TabsTrigger>
         </TabsList>
 
-        <TabsContent value={tab}>
-          <UnitList
-            units={units}
-            loading={loading}
-            tab={tab}
-            isManager={isManager}
-            userId={user?.id}
-            onEdit={openEdit}
-            onDelete={setDeleting}
-            onToggleStep={handleToggleStepDone}
-            canManage={canManageUnit}
-          />
-
-          {!loading && pagination.totalPages > 1 && (
-            <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
-              <span>{pagination.total} units</span>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8"
-                  disabled={pagination.page <= 1}
-                  onClick={() => fetchUnits(pagination.page - 1, tab)}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span>
-                  {pagination.page} / {pagination.totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8"
-                  disabled={!pagination.hasNextPage}
-                  onClick={() => fetchUnits(pagination.page + 1, tab)}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
+        <TabsContent value={tab} className="space-y-8">
+          <section className="space-y-3">
+            <div>
+              <h2 className="text-sm font-semibold tracking-wide text-foreground">My tasks</h2>
+              <p className="text-xs text-muted-foreground">Work units assigned to you.</p>
             </div>
+            <UnitList
+              units={myUnits}
+              loading={myLoading}
+              tab={tab}
+              isManager={isManager}
+              userId={user?.id}
+              emptyLabel={`No ${tab === "OPEN" ? "open" : "closed"} tasks assigned to you.`}
+              onEdit={openEdit}
+              onDelete={setDeleting}
+              onToggleStep={handleToggleStepDone}
+              canManage={canManageUnit}
+            />
+            {!myLoading && myPagination.totalPages > 1 && (
+              <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+                <span>{myPagination.total} units</span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    disabled={myPagination.page <= 1}
+                    onClick={() => fetchMyUnits(myPagination.page - 1, tab)}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span>
+                    {myPagination.page} / {myPagination.totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    disabled={!myPagination.hasNextPage}
+                    onClick={() => fetchMyUnits(myPagination.page + 1, tab)}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </section>
+
+          {canViewTeam && (
+            <section className="space-y-3">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-semibold tracking-wide text-foreground">My team's tasks</h2>
+                  <p className="text-xs text-muted-foreground">
+                    Work units for people who report to you.
+                  </p>
+                </div>
+                {teamMembers.length > 0 && (
+                  <div className="min-w-[200px] space-y-1">
+                    <Label className="text-xs text-muted-foreground">Team member</Label>
+                    <Select value={teamMemberId} onValueChange={setTeamMemberId}>
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder="Select member" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {teamMembers.map((member) => (
+                          <SelectItem key={member.id} value={member.id}>
+                            {member.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+              {teamMembers.length === 0 ? (
+                <p className="rounded-lg border border-border p-8 text-center text-sm text-muted-foreground">
+                  No team members report to you yet.
+                </p>
+              ) : (
+                <>
+                  <UnitList
+                    units={teamUnits}
+                    loading={teamLoading}
+                    tab={tab}
+                    isManager={isManager}
+                    userId={user?.id}
+                    emptyLabel={`No ${tab === "OPEN" ? "open" : "closed"} tasks for this team member.`}
+                    onEdit={openEdit}
+                    onDelete={setDeleting}
+                    onToggleStep={handleToggleStepDone}
+                    canManage={canManageUnit}
+                  />
+                  {!teamLoading && teamPagination.totalPages > 1 && (
+                    <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+                      <span>{teamPagination.total} units</span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                          disabled={teamPagination.page <= 1}
+                          onClick={() => fetchTeamUnits(teamPagination.page - 1, tab)}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <span>
+                          {teamPagination.page} / {teamPagination.totalPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                          disabled={!teamPagination.hasNextPage}
+                          onClick={() => fetchTeamUnits(teamPagination.page + 1, tab)}
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </section>
           )}
         </TabsContent>
       </Tabs>
@@ -965,7 +1131,7 @@ export default function WorkUnitsPage() {
                       await workApi.update(unit.id, { projectId })
                     }
                   }
-                  fetchUnits(1, tab)
+                  refreshLists(1, 1, tab)
                 } catch {
                   toast.error("Failed to save work unit updates")
                 } finally {
@@ -990,6 +1156,7 @@ function UnitList({
   tab,
   isManager,
   userId,
+  emptyLabel,
   onEdit,
   onDelete,
   onToggleStep,
@@ -1000,6 +1167,7 @@ function UnitList({
   tab: WorkUnitStatus
   isManager: boolean
   userId: string | undefined
+  emptyLabel?: string
   onEdit: (unit: WorkUnit) => void
   onDelete: (unit: WorkUnit) => void
   onToggleStep: (unit: WorkUnit, stepIndex: number) => void
@@ -1018,7 +1186,7 @@ function UnitList({
   if (units.length === 0) {
     return (
       <p className="rounded-lg border border-border p-8 text-center text-sm text-muted-foreground">
-        No {tab === "OPEN" ? "open" : "closed"} work units yet.
+        {emptyLabel ?? `No ${tab === "OPEN" ? "open" : "closed"} work units yet.`}
       </p>
     )
   }
