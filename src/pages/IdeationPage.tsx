@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Lightbulb, Loader2, Mic, MicOff, Plus, Users } from "lucide-react"
+import { Lightbulb, Loader2, Mic, MicOff, Pencil, Plus, Trash2, Users } from "lucide-react"
 import { toast } from "sonner"
 import { ideationApi } from "@/lib/api"
 import { firstValidationError, validateRequiredText } from "@/lib/validation"
-import type { CreateIdeaRequest, IdeaItem, RecommendationItem } from "@/types"
+import type { CreateIdeaRequest, IdeaItem, RecommendationItem, UpdateIdeaRequest } from "@/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -117,6 +117,11 @@ export default function IdeationPage() {
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [tagsText, setTagsText] = useState("")
+  const [editingIdea, setEditingIdea] = useState<IdeaItem | null>(null)
+  const [deletingIdea, setDeletingIdea] = useState<IdeaItem | null>(null)
+  const [editTitle, setEditTitle] = useState("")
+  const [editDescription, setEditDescription] = useState("")
+  const [editTagsText, setEditTagsText] = useState("")
 
   const { supported: voiceSupported, listening, toggle: toggleVoice } = useSpeechRecognition(
     (target, text) => {
@@ -156,6 +161,39 @@ export default function IdeationPage() {
     },
   })
 
+  const updateIdeaMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: UpdateIdeaRequest }) =>
+      ideationApi.updateIdea(id, payload),
+    onSuccess: (updatedIdea) => {
+      toast.success("Idea updated")
+      setEditingIdea(null)
+      queryClient.setQueryData<IdeaItem[]>(
+        ["ideation", "ideas", DEFAULT_PAGE_SIZE],
+        (existing) => existing?.map((idea) => (idea.id === updatedIdea.id ? updatedIdea : idea))
+      )
+      queryClient.invalidateQueries({ queryKey: ["ideation", "recommendations"] })
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Failed to update idea")
+    },
+  })
+
+  const deleteIdeaMutation = useMutation({
+    mutationFn: (id: string) => ideationApi.deleteIdea(id),
+    onSuccess: (_result, deletedId) => {
+      toast.success("Idea deleted")
+      setDeletingIdea(null)
+      queryClient.setQueryData<IdeaItem[]>(
+        ["ideation", "ideas", DEFAULT_PAGE_SIZE],
+        (existing) => existing?.filter((idea) => idea.id !== deletedId)
+      )
+      queryClient.invalidateQueries({ queryKey: ["ideation", "recommendations"] })
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Failed to delete idea")
+    },
+  })
+
   const handleCreateIdea = () => {
     const validationError = firstValidationError(
       validateRequiredText(title, "Title"),
@@ -169,6 +207,33 @@ export default function IdeationPage() {
       title: title.trim(),
       description: description.trim(),
       tags: parsedTags.length > 0 ? parsedTags : undefined,
+    })
+  }
+
+  const openEditIdea = (idea: IdeaItem) => {
+    setEditTitle(idea.title)
+    setEditDescription(idea.description)
+    setEditTagsText(idea.tags.join(", "))
+    setEditingIdea(idea)
+  }
+
+  const handleUpdateIdea = () => {
+    if (!editingIdea) return
+    const validationError = firstValidationError(
+      validateRequiredText(editTitle, "Title"),
+      validateRequiredText(editDescription, "Description")
+    )
+    if (validationError) {
+      toast.error(validationError)
+      return
+    }
+    updateIdeaMutation.mutate({
+      id: editingIdea.id,
+      payload: {
+        title: editTitle.trim(),
+        description: editDescription.trim(),
+        tags: parseTags(editTagsText),
+      },
     })
   }
 
@@ -220,7 +285,12 @@ export default function IdeationPage() {
           ) : (
             <div className="divide-y divide-border/60 rounded-xl border border-border/70 bg-card/60">
               {ideas.map((idea) => (
-                <IdeaRow key={idea.id} idea={idea} />
+                <IdeaRow
+                  key={idea.id}
+                  idea={idea}
+                  onEdit={() => openEditIdea(idea)}
+                  onDelete={() => setDeletingIdea(idea)}
+                />
               ))}
             </div>
           )}
@@ -364,18 +434,136 @@ export default function IdeationPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!editingIdea} onOpenChange={(open) => !open && setEditingIdea(null)}>
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Edit idea</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-idea-title">Title *</Label>
+              <Input
+                id="edit-idea-title"
+                value={editTitle}
+                onChange={(event) => setEditTitle(event.target.value)}
+                maxLength={500}
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-idea-description">Description *</Label>
+              <Textarea
+                id="edit-idea-description"
+                value={editDescription}
+                onChange={(event) => setEditDescription(event.target.value)}
+                maxLength={8000}
+                rows={7}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-idea-tags">
+                Tags <span className="text-muted-foreground">(optional, comma-separated)</span>
+              </Label>
+              <Input
+                id="edit-idea-tags"
+                value={editTagsText}
+                onChange={(event) => setEditTagsText(event.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditingIdea(null)}
+              disabled={updateIdeaMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpdateIdea}
+              disabled={updateIdeaMutation.isPending}
+              className="gap-2"
+            >
+              {updateIdeaMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Save changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deletingIdea} onOpenChange={(open) => !open && setDeletingIdea(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Delete idea?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            “{deletingIdea?.title}” and its matches will be permanently removed.
+          </p>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeletingIdea(null)}
+              disabled={deleteIdeaMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deletingIdea && deleteIdeaMutation.mutate(deletingIdea.id)}
+              disabled={deleteIdeaMutation.isPending}
+              className="gap-2"
+            >
+              {deleteIdeaMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
 
-function IdeaRow({ idea }: { idea: IdeaItem }) {
+function IdeaRow({
+  idea,
+  onEdit,
+  onDelete,
+}: {
+  idea: IdeaItem
+  onEdit: () => void
+  onDelete: () => void
+}) {
   return (
-    <div className="px-4 py-3">
+    <div className="group px-4 py-3">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-medium text-foreground">{idea.title}</p>
-        <time className="shrink-0 text-xs text-muted-foreground">
-          {new Date(idea.createdAt).toLocaleDateString()}
-        </time>
+        <p className="min-w-0 break-words text-sm font-medium text-foreground">{idea.title}</p>
+        <div className="flex shrink-0 items-center gap-1">
+          <time className="mr-1 text-xs text-muted-foreground">
+            {new Date(idea.createdAt).toLocaleDateString()}
+          </time>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+            onClick={onEdit}
+            aria-label={`Edit ${idea.title}`}
+            title="Edit idea"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+            onClick={onDelete}
+            aria-label={`Delete ${idea.title}`}
+            title="Delete idea"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </div>
       <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{idea.description}</p>
       {idea.tags.length > 0 && (

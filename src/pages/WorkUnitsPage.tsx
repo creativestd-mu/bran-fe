@@ -882,7 +882,7 @@ export default function WorkUnitsPage() {
           {editing && (editing.transcript || editing.taggingMappings?.length) ? (
             <div className="space-y-2 border-t border-border/60 pt-4">
               <Label className="text-xs text-muted-foreground">
-                Dictation — click a #tag to reassign
+                Dictation — assignments are above; yellow = source quote
               </Label>
               <TranscriptTagCanvas
                 transcript={editing.transcript ?? ""}
@@ -1006,7 +1006,9 @@ export default function WorkUnitsPage() {
             <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-2">
-                  <Label className="text-xs text-muted-foreground">Transcript</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    Transcript — assignments are above; yellow = source quote
+                  </Label>
                   <Button
                     type="button"
                     size="sm"

@@ -1,8 +1,14 @@
 import type { TaggingMapping } from "@/types"
 
 export type TranscriptSegment =
-  | { type: "text"; text: string }
-  | { type: "tag"; mappingKey: string; label: string; mapping: TaggingMapping }
+  | { type: "text"; text: string; highlighted?: boolean }
+  | {
+      type: "tag"
+      mappingKey: string
+      label: string
+      mapping: TaggingMapping
+      highlighted?: boolean
+    }
 
 export function taggingMappingKey(mapping: TaggingMapping): string {
   return `${mapping.target}:${mapping.workUnitId}:${mapping.stepId ?? "owner"}`
@@ -31,19 +37,20 @@ export function patchPayloadForMapping(
   return { stepAssignments: [{ stepId: mapping.stepId, assigneeId }] }
 }
 
-function tagLabel(mapping: TaggingMapping): string {
-  return mapping.assignee?.name ?? mapping.spokenName ?? "Unassigned"
-}
-
-interface TagAnchor {
+interface ExcerptRegion {
   start: number
   end: number
   mappingKey: string
-  label: string
   mapping: TaggingMapping
+  nameStart: number | null
+  nameEnd: number | null
+  label: string | null
 }
 
-function findNameInExcerpt(excerpt: string, mapping: TaggingMapping): { start: number; end: number; label: string } | null {
+function findNameInExcerpt(
+  excerpt: string,
+  mapping: TaggingMapping
+): { start: number; end: number; label: string } | null {
   const candidates = [mapping.spokenName, mapping.assignee?.name].filter(
     (value): value is string => Boolean(value?.trim())
   )
@@ -59,13 +66,13 @@ function findNameInExcerpt(excerpt: string, mapping: TaggingMapping): { start: n
       }
     }
   }
-  const fallback = tagLabel(mapping)
-  if (fallback === "Unassigned") return null
-  return { start: 0, end: Math.min(fallback.length, excerpt.length), label: fallback }
+  // Never fabricate a tag position. Doing so replaces the beginning of the
+  // transcript with a label that was not present in the source text.
+  return null
 }
 
-function findTagAnchors(transcript: string, mappings: TaggingMapping[]): TagAnchor[] {
-  const anchors: TagAnchor[] = []
+function findExcerptRegions(transcript: string, mappings: TaggingMapping[]): ExcerptRegion[] {
+  const regions: ExcerptRegion[] = []
   const lowerTranscript = transcript.toLowerCase()
 
   for (const mapping of mappings) {
@@ -77,54 +84,91 @@ function findTagAnchors(transcript: string, mappings: TaggingMapping[]): TagAnch
 
     const excerptSlice = transcript.slice(excerptIndex, excerptIndex + excerpt.length)
     const nameMatch = findNameInExcerpt(excerptSlice, mapping)
-    if (!nameMatch) continue
 
-    anchors.push({
-      start: excerptIndex + nameMatch.start,
-      end: excerptIndex + nameMatch.end,
+    regions.push({
+      start: excerptIndex,
+      end: excerptIndex + excerpt.length,
       mappingKey: taggingMappingKey(mapping),
-      label: nameMatch.label,
       mapping,
+      nameStart: nameMatch ? excerptIndex + nameMatch.start : null,
+      nameEnd: nameMatch ? excerptIndex + nameMatch.end : null,
+      label: nameMatch?.label ?? null,
     })
   }
 
-  anchors.sort((a, b) => a.start - b.start || b.end - a.end)
+  // Prefer longer excerpts first so nested/overlapping quotes don't wipe the main source.
+  regions.sort((a, b) => a.start - b.start || b.end - a.end || a.end - b.end)
 
-  const deduped: TagAnchor[] = []
-  for (const anchor of anchors) {
+  const deduped: ExcerptRegion[] = []
+  for (const region of regions) {
     const overlaps = deduped.some(
-      (existing) =>
-        anchor.start < existing.end &&
-        anchor.end > existing.start &&
-        existing.mapping.assigneeId === anchor.mapping.assigneeId &&
-        existing.label.toLowerCase() === anchor.label.toLowerCase()
+      (existing) => region.start < existing.end && region.end > existing.start
     )
-    if (!overlaps) deduped.push(anchor)
+    if (!overlaps) deduped.push(region)
   }
 
-  return deduped
+  return deduped.sort((a, b) => a.start - b.start)
 }
 
-export function buildTranscriptSegments(transcript: string, mappings: TaggingMapping[]): TranscriptSegment[] {
+export function buildTranscriptSegments(
+  transcript: string,
+  mappings: TaggingMapping[]
+): TranscriptSegment[] {
   if (!transcript) return []
-  const anchors = findTagAnchors(transcript, mappings)
-  if (anchors.length === 0) return [{ type: "text", text: transcript }]
+  const regions = findExcerptRegions(transcript, mappings)
+  if (regions.length === 0) return [{ type: "text", text: transcript }]
 
   const segments: TranscriptSegment[] = []
   let cursor = 0
 
-  for (const anchor of anchors) {
-    if (anchor.start < cursor) continue
-    if (anchor.start > cursor) {
-      segments.push({ type: "text", text: transcript.slice(cursor, anchor.start) })
+  for (const region of regions) {
+    if (region.start < cursor) continue
+    if (region.start > cursor) {
+      segments.push({ type: "text", text: transcript.slice(cursor, region.start) })
     }
+
+    const hasName =
+      region.nameStart != null &&
+      region.nameEnd != null &&
+      region.label != null &&
+      region.nameStart >= region.start &&
+      region.nameEnd <= region.end
+
+    if (!hasName) {
+      segments.push({
+        type: "text",
+        text: transcript.slice(region.start, region.end),
+        highlighted: true,
+      })
+      cursor = region.end
+      continue
+    }
+
+    if (region.nameStart! > region.start) {
+      segments.push({
+        type: "text",
+        text: transcript.slice(region.start, region.nameStart!),
+        highlighted: true,
+      })
+    }
+
     segments.push({
       type: "tag",
-      mappingKey: anchor.mappingKey,
-      label: anchor.label,
-      mapping: anchor.mapping,
+      mappingKey: region.mappingKey,
+      label: region.label!,
+      mapping: region.mapping,
+      highlighted: true,
     })
-    cursor = anchor.end
+
+    if (region.nameEnd! < region.end) {
+      segments.push({
+        type: "text",
+        text: transcript.slice(region.nameEnd!, region.end),
+        highlighted: true,
+      })
+    }
+
+    cursor = region.end
   }
 
   if (cursor < transcript.length) {

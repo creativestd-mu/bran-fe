@@ -161,6 +161,7 @@ class ApiClient {
   async delete<T>(url: string): Promise<T> {
     try {
       const response = await this.client.delete<ApiResponse<T>>(url)
+      if (response.status === 204) return undefined as T
       if (!response.data.success) throw new ApiError(response.data.error || "Request failed", response.status, response.data.details)
       return response.data.data as T
     } catch (error) { asApiError(error) }
@@ -812,6 +813,10 @@ export const socialApi = {
 export const ideationApi = {
   createIdea: (data: import("@/types").CreateIdeaRequest) =>
     api.post<import("@/types").IdeaItem>("/ideation/ideas", data),
+  updateIdea: (id: string, data: import("@/types").UpdateIdeaRequest) =>
+    api.patch<import("@/types").IdeaItem>(`/ideation/ideas/${encodeURIComponent(id)}`, data),
+  deleteIdea: (id: string) =>
+    api.delete<void>(`/ideation/ideas/${encodeURIComponent(id)}`),
   listMyIdeas: (params?: { take?: number; skip?: number }) =>
     api.get<import("@/types").IdeaItem[]>("/ideation/ideas/me", params as Record<string, unknown>),
   listMyRecommendations: (params?: { take?: number; skip?: number }) =>

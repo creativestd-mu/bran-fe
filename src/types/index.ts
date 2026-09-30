@@ -716,6 +716,8 @@ export type CreateIdeaRequest = {
   tags?: string[]
 }
 
+export type UpdateIdeaRequest = Partial<CreateIdeaRequest>
+
 export type IdeaItem = {
   id: string
   title: string
