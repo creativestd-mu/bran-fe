@@ -174,26 +174,41 @@ export function CreateContentDialog({ open, onOpenChange }: Props) {
               <Select
                 value={form.projectId}
                 onValueChange={(value) => setForm((p) => ({ ...p, projectId: value }))}
-                disabled={projectsQuery.isLoading}
+                disabled={projectsQuery.isLoading || projects.length === 0}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder={projectsQuery.isLoading ? "Loading..." : "Select project"} />
+                  <SelectValue
+                    placeholder={
+                      projectsQuery.isLoading
+                        ? "Loading..."
+                        : projects.length === 0
+                          ? "No projects available"
+                          : "Select project"
+                    }
+                  />
                 </SelectTrigger>
-                <SelectContent>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
+                {projects.length > 0 && (
+                  <SelectContent>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                )}
               </Select>
+              {!projectsQuery.isLoading && projects.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Create a project before adding content.
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Team *</Label>
               <Select
                 value={form.teamId}
                 onValueChange={(value) => setForm((p) => ({ ...p, teamId: value }))}
-                disabled={teamsQuery.isLoading || !form.projectId}
+                disabled={teamsQuery.isLoading || !form.projectId || eligibleTeams.length === 0}
               >
                 <SelectTrigger>
                   <SelectValue
@@ -206,13 +221,15 @@ export function CreateContentDialog({ open, onOpenChange }: Props) {
                     }
                   />
                 </SelectTrigger>
-                <SelectContent>
-                  {eligibleTeams.map((team) => (
-                    <SelectItem key={team.id} value={team.id}>
-                      {team.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
+                {eligibleTeams.length > 0 && (
+                  <SelectContent>
+                    {eligibleTeams.map((team) => (
+                      <SelectItem key={team.id} value={team.id}>
+                        {team.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                )}
               </Select>
               {selectedProject && eligibleTeams.length === 0 && (
                 <p className="text-xs text-amber-500">

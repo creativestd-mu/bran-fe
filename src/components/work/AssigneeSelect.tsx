@@ -18,6 +18,7 @@ interface AssigneeSelectProps {
   placeholder?: string
   className?: string
   disabled?: boolean
+  fallbackUser?: WorkUserRef | null
 }
 
 export function AssigneeSelect({
@@ -30,8 +31,11 @@ export function AssigneeSelect({
   placeholder = "Select assignee",
   className,
   disabled,
+  fallbackUser,
 }: AssigneeSelectProps) {
   const sorted = sortUsersForAssigneePicker(users, currentUserId)
+  const missingSelectedUser =
+    fallbackUser && value === fallbackUser.id && !sorted.some((user) => user.id === fallbackUser.id)
   const directReportIds = new Set(sorted.filter((user) => user.managerUserId === currentUserId).map((user) => user.id))
 
   return (
@@ -45,6 +49,9 @@ export function AssigneeSelect({
       </SelectTrigger>
       <SelectContent>
         {includeUnassigned && <SelectItem value="none">{unassignedLabel}</SelectItem>}
+        {missingSelectedUser && (
+          <SelectItem value={fallbackUser.id}>{fallbackUser.name}</SelectItem>
+        )}
         {sorted.map((user) => (
           <SelectItem key={user.id} value={user.id}>
             {user.name}

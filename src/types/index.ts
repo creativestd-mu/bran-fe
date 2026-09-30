@@ -686,7 +686,19 @@ export type NotificationKind =
   | "WORK_UNIT_ASSIGNED"
   | "WORK_STEP_ASSIGNED"
   | "WORK_STEP_OVERDUE"
+  | "REVIEW_REQUESTED"
+  | "REVIEW_RESPONDED"
   | (string & {})
+
+export interface PeerReviewNotificationData {
+  reviewId: string
+  status: ReviewStatus
+  context?: string
+  responseComment?: string
+  requestedBy?: { id: string; name: string }
+  requestedTo?: { id: string; name: string }
+  link?: string
+}
 
 export interface Notification {
   id: string

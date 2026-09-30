@@ -21,6 +21,7 @@ import {
   parseNotificationPayload,
   type NodeReadyData,
   type Notification,
+  type PeerReviewNotificationData,
   type ResourceRequestedData,
   type ResourceReviewedData,
   type WorkAssignedNotificationData,
@@ -49,6 +50,9 @@ function deepLinkFor(parsed: Record<string, unknown> | null): string | null {
   if (!parsed) return null
   const workUnitId = typeof parsed.workUnitId === "string" ? parsed.workUnitId : null
   if (workUnitId) return `/work?unit=${workUnitId}`
+
+  const reviewId = typeof parsed.reviewId === "string" ? parsed.reviewId : null
+  if (reviewId) return `/reviews?id=${encodeURIComponent(reviewId)}`
 
   const backendLink = typeof parsed.link === "string" ? parsed.link : null
   if (backendLink) {
@@ -204,11 +208,53 @@ function NotificationIcon({
       return <XCircle className="h-4 w-4 text-destructive" />
     return <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
   }
+  if (notification.kind === "REVIEW_REQUESTED") {
+    return <ClipboardList className="h-4 w-4 text-amber-500" />
+  }
+  if (notification.kind === "REVIEW_RESPONDED") {
+    const status = (data as Partial<PeerReviewNotificationData> | null)?.status
+    return status === "rejected" ? (
+      <XCircle className="h-4 w-4 text-destructive" />
+    ) : (
+      <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+    )
+  }
   if (
     notification.kind === "WORK_UNIT_ASSIGNED" ||
     notification.kind === "WORK_STEP_ASSIGNED"
   ) {
     return <ClipboardList className="h-4 w-4 text-accent" />
+  }
+
+  if (
+    notification.kind === "REVIEW_REQUESTED" ||
+    notification.kind === "REVIEW_RESPONDED"
+  ) {
+    const d = data as Partial<PeerReviewNotificationData> | null
+    const pending = notification.kind === "REVIEW_REQUESTED"
+    const rejected = d?.status === "rejected"
+    return (
+      <div className="space-y-3 rounded-md border border-border bg-muted/30 p-3 text-sm">
+        <Row icon={<ClipboardList className="h-3.5 w-3.5" />} label="Status">
+          <Badge
+            variant={pending ? "warning" : rejected ? "destructive" : "success"}
+            className="text-[10px] uppercase"
+          >
+            {pending ? "Pending" : rejected ? "Rejected" : "Approved"}
+          </Badge>
+        </Row>
+        {d?.requestedBy && (
+          <Row icon={<UserIcon className="h-3.5 w-3.5" />} label="Requested by">
+            {d.requestedBy.name}
+          </Row>
+        )}
+        {d?.requestedTo && (
+          <Row icon={<UserIcon className="h-3.5 w-3.5" />} label="Reviewed by">
+            {d.requestedTo.name}
+          </Row>
+        )}
+      </div>
+    )
   }
   if (notification.kind === "WORK_STEP_OVERDUE") {
     return <ClipboardList className="h-4 w-4 text-destructive" />
@@ -403,6 +449,10 @@ function NotificationActions({
     notification.kind === "WORK_STEP_ASSIGNED" ||
     notification.kind === "WORK_STEP_OVERDUE"
 
+  const isPeerReviewNotification =
+    notification.kind === "REVIEW_REQUESTED" ||
+    notification.kind === "REVIEW_RESPONDED"
+
   return (
     <div className="space-y-3">
       {isActionable && (
@@ -458,7 +508,11 @@ function NotificationActions({
             {link && (
               <Button className="gap-1.5" onClick={onViewInWorkflow}>
                 <ExternalLink className="h-3.5 w-3.5" />
-                {isWorkNotification ? "Open work unit" : "Open in workflow"}
+                {isWorkNotification
+                  ? "Open work unit"
+                  : isPeerReviewNotification
+                    ? "Open review"
+                    : "Open in workflow"}
               </Button>
             )}
           </>

@@ -49,6 +49,16 @@ function statusBadge(status: ReviewStatus) {
   return <Badge variant="secondary">Pending</Badge>
 }
 
+function statusSummary(review: ReviewRequest): string {
+  if (review.status === "accepted") {
+    return `Approved by ${review.requestedTo.name}`
+  }
+  if (review.status === "rejected") {
+    return `Rejected by ${review.requestedTo.name}`
+  }
+  return `Waiting for ${review.requestedTo.name} to respond`
+}
+
 function formatWhen(value: string): string {
   return new Intl.DateTimeFormat("en-IN", {
     timeZone: "Asia/Kolkata",
@@ -337,6 +347,10 @@ export default function ReviewsPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <p className="line-clamp-3 whitespace-pre-wrap text-sm">{review.context}</p>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">Status:</span>
+                  <span>{statusSummary(review)}</span>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {review.fileUrl ? (
                     <Badge variant="outline" className="gap-1">
@@ -466,6 +480,15 @@ export default function ReviewsPage() {
                   <span className="text-muted-foreground">Requested:</span>{" "}
                   {formatWhen(detail.createdAt)}
                 </p>
+                <div className="rounded-md border border-border bg-muted/30 p-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Current status
+                  </p>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    {statusBadge(detail.status)}
+                    <span>{statusSummary(detail)}</span>
+                  </div>
+                </div>
                 <div>
                   <p className="mb-1 text-muted-foreground">Context</p>
                   <p className="whitespace-pre-wrap rounded-md border bg-muted/40 p-3">
@@ -502,8 +525,8 @@ export default function ReviewsPage() {
                   </div>
                 ) : null}
               </div>
-              <DialogFooter>
-                {isReviewer(detail) && detail.status === "pending" ? (
+              {isReviewer(detail) && detail.status === "pending" ? (
+                <DialogFooter>
                   <>
                     <Button
                       variant="destructive"
@@ -513,12 +536,8 @@ export default function ReviewsPage() {
                     </Button>
                     <Button onClick={() => openRespond(detail, "accepted")}>Accept</Button>
                   </>
-                ) : (
-                  <Button variant="outline" onClick={() => setDetail(null)}>
-                    Close
-                  </Button>
-                )}
-              </DialogFooter>
+                </DialogFooter>
+              ) : null}
             </>
           ) : null}
         </DialogContent>

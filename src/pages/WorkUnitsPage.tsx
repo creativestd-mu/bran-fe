@@ -588,9 +588,6 @@ export default function WorkUnitsPage() {
     }
     setRegenerating(true)
     try {
-      await Promise.all(
-        audioResult.workUnits.map((unit) => workApi.delete(unit.id).catch(() => {}))
-      )
       const result = await workApi.regenerateFromTranscript(
         audioResult.audioRecording.id,
         transcript
@@ -841,7 +838,7 @@ export default function WorkUnitsPage() {
       </Tabs>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] overflow-y-auto overscroll-contain sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>New work unit</DialogTitle>
           </DialogHeader>
@@ -866,7 +863,7 @@ export default function WorkUnitsPage() {
       </Dialog>
 
       <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
-        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] overflow-y-auto overscroll-contain sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>Edit work unit</DialogTitle>
           </DialogHeader>
@@ -1276,7 +1273,10 @@ function UnitList({
                         type="checkbox"
                         checked={step.done}
                         onChange={() => onToggleStep(unit, i)}
-                        className="mt-1 h-4 w-4 shrink-0 rounded border-border"
+                        disabled={unit.status !== "OPEN"}
+                        aria-label={unit.status === "OPEN" ? "Toggle step" : "Closed work unit step"}
+                        title={unit.status === "OPEN" ? "Toggle step" : "Closed work unit is locked"}
+                        className="mt-1 h-4 w-4 shrink-0 rounded border-border disabled:cursor-not-allowed disabled:opacity-60"
                       />
                     ) : (
                       <span className="mt-1 h-4 w-4 shrink-0" />
@@ -1374,6 +1374,7 @@ function WorkUnitForm({
             onChange={(next) => onChange((prev) => ({ ...prev, assignedToUserId: next ?? currentUserId ?? null }))}
             includeUnassigned={false}
             placeholder="Select owner"
+            fallbackUser={editingUnit?.user}
           />
         </div>
       )}
@@ -1432,11 +1433,11 @@ function WorkUnitForm({
         {form.steps.length === 0 ? (
           <p className="text-xs text-muted-foreground">No steps yet.</p>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {form.steps.map((step, i) => (
               <div
                 key={i}
-                className="flex flex-wrap items-start gap-2 rounded-lg border border-border/60 p-3"
+                className="grid gap-3 rounded-xl border border-border/60 bg-muted/15 p-4 sm:grid-cols-[auto_minmax(0,1fr)_auto]"
               >
                 <input
                   type="checkbox"

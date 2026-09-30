@@ -17,6 +17,7 @@ import {
   type Notification,
   type NotificationKind,
   type NotificationsPage,
+  type PeerReviewNotificationData,
   type ResourceReviewedData,
 } from "@/types"
 import { Button } from "@/components/ui/button"
@@ -64,6 +65,17 @@ function KindIcon({ kind, data }: KindIconProps) {
     const decision = (data as Partial<ResourceReviewedData> | null)?.resource?.approvalState
     if (decision === "REJECTED") return <XCircle className="h-4 w-4 text-destructive" />
     return <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+  }
+  if (kind === "REVIEW_REQUESTED") {
+    return <ClipboardList className="h-4 w-4 text-amber-500" />
+  }
+  if (kind === "REVIEW_RESPONDED") {
+    const status = (data as Partial<PeerReviewNotificationData> | null)?.status
+    return status === "rejected" ? (
+      <XCircle className="h-4 w-4 text-destructive" />
+    ) : (
+      <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+    )
   }
   return <Bell className="h-4 w-4 text-muted-foreground" />
 }
@@ -224,7 +236,7 @@ export function NotificationsMenu() {
             {unreadOnly ? "No unread notifications." : "You're all caught up."}
           </div>
         ) : (
-          <ScrollArea className="max-h-[420px]">
+          <ScrollArea className="h-[min(420px,calc(100vh-12rem))]">
             <ul className="divide-y divide-border">
               {parsedItems.map(({ notification, data }) => {
                 const isUnread = !notification.readAt
@@ -289,6 +301,25 @@ export function NotificationsMenu() {
                           {notification.kind === "WORK_STEP_OVERDUE" && (
                             <Badge variant="destructive" className="px-1.5 py-0 text-[9px] uppercase">
                               Overdue
+                            </Badge>
+                          )}
+                          {notification.kind === "REVIEW_REQUESTED" && (
+                            <Badge variant="warning" className="px-1.5 py-0 text-[9px] uppercase">
+                              Pending
+                            </Badge>
+                          )}
+                          {notification.kind === "REVIEW_RESPONDED" && (
+                            <Badge
+                              variant={
+                                (data as Partial<PeerReviewNotificationData> | null)?.status ===
+                                "rejected"
+                                  ? "destructive"
+                                  : "success"
+                              }
+                              className="px-1.5 py-0 text-[9px] uppercase"
+                            >
+                              {(data as Partial<PeerReviewNotificationData> | null)?.status ??
+                                "Reviewed"}
                             </Badge>
                           )}
                         </div>
